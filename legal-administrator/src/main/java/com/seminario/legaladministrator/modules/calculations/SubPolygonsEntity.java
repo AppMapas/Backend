@@ -1,4 +1,4 @@
-package com.seminario.legaladministrator.model.calculations;
+package com.seminario.legaladministrator.modules.calculations;
 
 import jakarta.persistence.*;
 import lombok.*;

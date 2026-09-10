@@ -1,4 +1,4 @@
-package com.seminario.legaladministrator.model.users;
+package com.seminario.legaladministrator.modules.users;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,13 +9,13 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "marital_status")
-public class MaritalStatusEntity {
+@Table(name = "role")
+public class Role {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50, name = "name")
+    @Column(nullable = false, name = "name")
     private String name;
 
     @Column(nullable = false, name = "description")

@@ -1,0 +1,23 @@
+package com.seminario.legaladministrator.modules.users;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Entity
+@Table(name = "marital_status")
+public class MaritalStatusEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 50, name = "name")
+    private String name;
+
+    @Column(nullable = false, name = "description")
+    private String description;
+}

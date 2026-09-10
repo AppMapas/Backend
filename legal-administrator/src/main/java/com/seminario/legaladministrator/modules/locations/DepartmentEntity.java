@@ -1,4 +1,4 @@
-package com.seminario.legaladministrator.model.locations;
+package com.seminario.legaladministrator.modules.locations;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

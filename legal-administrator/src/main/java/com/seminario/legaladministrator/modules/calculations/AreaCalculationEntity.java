@@ -1,7 +1,7 @@
-package com.seminario.legaladministrator.model.calculations;
+package com.seminario.legaladministrator.modules.calculations;
 
-import com.seminario.legaladministrator.model.users.ClientUserEntity;
-import com.seminario.legaladministrator.model.users.UserSystem;
+import com.seminario.legaladministrator.modules.users.ClientUserEntity;
+import com.seminario.legaladministrator.modules.users.UserSystem;
 import jakarta.persistence.*;
 import lombok.*;
 

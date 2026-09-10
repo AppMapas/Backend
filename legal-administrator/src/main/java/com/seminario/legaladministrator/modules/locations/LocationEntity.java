@@ -1,7 +1,6 @@
-package com.seminario.legaladministrator.model.users;
+package com.seminario.legaladministrator.modules.locations;
 
-import com.seminario.legaladministrator.model.locations.DepartmentEntity;
-import com.seminario.legaladministrator.model.locations.MunicipalityEntity;
+import com.seminario.legaladministrator.modules.users.UserSystem;
 import jakarta.persistence.*;
 import lombok.*;
 

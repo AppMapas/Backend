@@ -1,4 +1,4 @@
-package com.seminario.legaladministrator.model.users;
+package com.seminario.legaladministrator.modules.locations;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,8 +9,8 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "role")
-public class Role {
+@Table(name = "municipality")
+public class MunicipalityEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,6 +18,7 @@ public class Role {
     @Column(nullable = false, name = "name")
     private String name;
 
-    @Column(nullable = false, name = "description")
-    private String description;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "numerical_code_department", nullable = false)
+    private DepartmentEntity department;
 }

@@ -1,4 +1,4 @@
-package com.seminario.legaladministrator.model.users;
+package com.seminario.legaladministrator.modules.users;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
