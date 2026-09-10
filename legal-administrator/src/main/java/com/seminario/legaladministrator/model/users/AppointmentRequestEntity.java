@@ -12,14 +12,14 @@ import java.time.LocalDate;
 @Builder
 @Entity
 @Table(name = "appointment_request")
-public class AppointmentRequest {
+public class AppointmentRequestEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dpi_client", nullable = false)
-    private ClientUser clientUser;
+    private ClientUserEntity clientUser;
 
     @Column(name = "id_user_system_assigned", length = 15)
     private String idUserSystemAssigned;

@@ -1,7 +1,7 @@
 package com.seminario.legaladministrator.model.users;
 
-import com.seminario.legaladministrator.model.locations.Departament;
-import com.seminario.legaladministrator.model.locations.Municipality;
+import com.seminario.legaladministrator.model.locations.DepartmentEntity;
+import com.seminario.legaladministrator.model.locations.MunicipalityEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,7 +12,7 @@ import lombok.*;
 @Builder
 @Entity
 @Table(name = "location")
-public class Location {
+public class LocationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,9 +26,9 @@ public class Location {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_municipality", nullable = false)
-    private Municipality municipality;
+    private MunicipalityEntity municipality;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "numerical_code_departament", nullable = false)
-    private Departament departament;
+    @JoinColumn(name = "numerical_code_department", nullable = false)
+    private DepartmentEntity department;
 }

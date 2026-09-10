@@ -1,33 +1,32 @@
 -- ==========================================
 -- 1. LIMPIEZA TOTAL
 -- ==========================================
-DROP TABLE IF EXISTS notification_log;
-DROP TABLE IF EXISTS legal_process_calendar;
-DROP TABLE IF EXISTS payment_schedule;
-DROP TABLE IF EXISTS income_record;
-DROP TABLE IF EXISTS expense_record;
-DROP TABLE IF EXISTS legal_process_document;
-DROP TABLE IF EXISTS legal_process_step;
-DROP TABLE IF EXISTS legal_process;
-DROP TABLE IF EXISTS payment_category;
-DROP TABLE IF EXISTS process_type;
-DROP TABLE IF EXISTS notification_type;
-DROP TABLE IF EXISTS client_document;
-DROP TABLE IF EXISTS boundancy_measurements;
-DROP TABLE IF EXISTS sub_polygons;
-DROP TABLE IF EXISTS boundaries;
-DROP TABLE IF EXISTS area_calculation;
-DROP TABLE IF EXISTS appointment_request;
-DROP TABLE IF EXISTS client_user;
-DROP TABLE IF EXISTS user_phone;
-DROP TABLE IF EXISTS location;
-DROP TABLE IF EXISTS user_system;
-DROP TABLE IF EXISTS municipality;
-DROP TABLE IF EXISTS departament;
-DROP TABLE IF EXISTS marital_status;
-DROP TABLE IF EXISTS country;
-DROP TABLE IF EXISTS role;
-
+DROP TABLE IF EXISTS notification_log CASCADE;
+DROP TABLE IF EXISTS legal_process_calendar CASCADE;
+DROP TABLE IF EXISTS payment_schedule CASCADE;
+DROP TABLE IF EXISTS income_record CASCADE;
+DROP TABLE IF EXISTS expense_record CASCADE;
+DROP TABLE IF EXISTS legal_process_document CASCADE;
+DROP TABLE IF EXISTS legal_process_step CASCADE;
+DROP TABLE IF EXISTS appointment_request CASCADE;
+DROP TABLE IF EXISTS legal_process CASCADE;
+DROP TABLE IF EXISTS payment_category CASCADE;
+DROP TABLE IF EXISTS process_type CASCADE;
+DROP TABLE IF EXISTS notification_type CASCADE;
+DROP TABLE IF EXISTS client_document CASCADE;
+DROP TABLE IF EXISTS boundancy_measurements CASCADE;
+DROP TABLE IF EXISTS sub_polygons CASCADE;
+DROP TABLE IF EXISTS boundaries CASCADE;
+DROP TABLE IF EXISTS area_calculation CASCADE;
+DROP TABLE IF EXISTS client_user CASCADE;
+DROP TABLE IF EXISTS user_phone CASCADE;
+DROP TABLE IF EXISTS location CASCADE;
+DROP TABLE IF EXISTS user_system CASCADE;
+DROP TABLE IF EXISTS municipality CASCADE;
+DROP TABLE IF EXISTS department CASCADE;
+DROP TABLE IF EXISTS marital_status CASCADE;
+DROP TABLE IF EXISTS country CASCADE;
+DROP TABLE IF EXISTS role CASCADE;
 -- ==========================================
 -- 2. CREACIÓN DE TABLAS POR MÓDULOS
 -- ==========================================
@@ -60,9 +59,9 @@ CREATE TABLE marital_status (
     description character varying(255) NOT NULL
 );
 
--- Tabla: departament
+-- Tabla: department
 -- Descripción: Catálogo geográfico principal que almacena los departamentos del país.
-CREATE TABLE departament (
+CREATE TABLE department (
     numerical_code character varying(10) PRIMARY KEY,
     name character varying(100) NOT NULL
 );
@@ -100,8 +99,8 @@ CREATE TABLE notification_type (
 CREATE TABLE municipality (
     id bigserial PRIMARY KEY,
     name character varying NOT NULL,
-    numerical_code_departament character varying(10) NOT NULL,
-    CONSTRAINT fk_municipality_departament FOREIGN KEY (numerical_code_departament) REFERENCES departament (numerical_code)
+    numerical_code_department character varying(10) NOT NULL,
+    CONSTRAINT fk_municipality_department FOREIGN KEY (numerical_code_department) REFERENCES department (numerical_code)
 );
 
 -- Tabla: user_system
@@ -140,10 +139,10 @@ CREATE TABLE location (
     dpi_user character varying(15) NOT NULL,
     exact_address character varying(255) NOT NULL,
     id_municipality bigint NOT NULL,
-    numerical_code_departament character varying(10) NOT NULL,
+    numerical_code_department character varying(10) NOT NULL,
     CONSTRAINT fk_location_user FOREIGN KEY (dpi_user) REFERENCES user_system (dpi),
     CONSTRAINT fk_location_municipality FOREIGN KEY (id_municipality) REFERENCES municipality (id),
-    CONSTRAINT fk_location_numerical_code_departament FOREIGN KEY (numerical_code_departament) REFERENCES departament (numerical_code)
+    CONSTRAINT fk_location_numerical_code_department FOREIGN KEY (numerical_code_department) REFERENCES department (numerical_code)
 );
 
 -- Tabla: user_phone

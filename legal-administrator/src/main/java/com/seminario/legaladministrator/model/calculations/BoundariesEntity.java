@@ -10,14 +10,14 @@ import lombok.*;
 @Builder
 @Entity
 @Table(name = "boundaries")
-public class Boundaries {
+public class BoundariesEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_area_calculation", nullable = false)
-    private AreaCalculation areaCalculation;
+    private AreaCalculationEntity areaCalculation;
 
     @Column(name = "side_number", nullable = false)
     private Long sideNumber;

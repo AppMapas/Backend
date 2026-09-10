@@ -9,16 +9,15 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "municipality")
-public class Municipality {
+@Table(name = "country")
+public class CountryEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, name = "name")
+    @Column(nullable = false, length = 150, name = "name")
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "numerical_code_departament", nullable = false)
-    private Departament departament;
+    @Column(name = "iso_code", length = 100)
+    private String isoCode;
 }

@@ -12,8 +12,8 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "departament")
-public class Departament {
+@Table(name = "department")
+public class DepartmentEntity {
     @Id
     @Column(name = "numerical_code", length = 10, nullable = false)
     private String numericalCode;

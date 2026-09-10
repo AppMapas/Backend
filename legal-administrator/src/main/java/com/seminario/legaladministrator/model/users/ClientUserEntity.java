@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Builder
 @Entity
 @Table(name = "client_user")
-public class ClientUser {
+public class ClientUserEntity {
     @Id
     @Column(length = 15, nullable = false)
     private String dpi;

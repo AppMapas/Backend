@@ -1,6 +1,6 @@
 package com.seminario.legaladministrator.model.calculations;
 
-import com.seminario.legaladministrator.model.users.ClientUser;
+import com.seminario.legaladministrator.model.users.ClientUserEntity;
 import com.seminario.legaladministrator.model.users.UserSystem;
 import jakarta.persistence.*;
 import lombok.*;
@@ -14,14 +14,14 @@ import java.time.LocalDate;
 @Builder
 @Entity
 @Table(name = "area_calculation")
-public class AreaCalculation {
+public class AreaCalculationEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dpi_client", nullable = false)
-    private ClientUser clientUser;
+    private ClientUserEntity clientUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_user_system", nullable = false)

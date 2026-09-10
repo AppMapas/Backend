@@ -11,15 +11,15 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "sub_poligons")
-public class SubPoligons {
+@Table(name = "sub_polygons")
+public class SubPolygonsEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_area_calculated", nullable = false)
-    private AreaCalculation areaCalculation;
+    private AreaCalculationEntity areaCalculation;
 
     @Column(name = "sub_lot_name", nullable = false, length = 100)
     private String subLotName;

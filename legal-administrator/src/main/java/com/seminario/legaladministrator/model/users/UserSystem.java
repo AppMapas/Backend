@@ -1,6 +1,6 @@
 package com.seminario.legaladministrator.model.users;
 
-import com.seminario.legaladministrator.model.locations.Country;
+import com.seminario.legaladministrator.model.locations.CountryEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -35,11 +35,11 @@ public class UserSystem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_marital_status", nullable = false)
-    private MaritalStatus maritalStatus;
+    private MaritalStatusEntity maritalStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_nationality", nullable = false)
-    private Country nationality;
+    private CountryEntity nationality;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_role", nullable = false)
