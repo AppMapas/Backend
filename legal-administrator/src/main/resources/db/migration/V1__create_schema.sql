@@ -1,0 +1,392 @@
+-- ==========================================
+-- 1. LIMPIEZA TOTAL
+-- ==========================================
+DROP TABLE IF EXISTS notification_log CASCADE;
+DROP TABLE IF EXISTS legal_process_calendar CASCADE;
+DROP TABLE IF EXISTS payment_schedule CASCADE;
+DROP TABLE IF EXISTS income_record CASCADE;
+DROP TABLE IF EXISTS expense_record CASCADE;
+DROP TABLE IF EXISTS legal_process_document CASCADE;
+DROP TABLE IF EXISTS legal_process_step CASCADE;
+DROP TABLE IF EXISTS appointment_request CASCADE;
+DROP TABLE IF EXISTS legal_process CASCADE;
+DROP TABLE IF EXISTS payment_category CASCADE;
+DROP TABLE IF EXISTS process_type CASCADE;
+DROP TABLE IF EXISTS notification_type CASCADE;
+DROP TABLE IF EXISTS client_document CASCADE;
+DROP TABLE IF EXISTS boundancy_measurements CASCADE;
+DROP TABLE IF EXISTS sub_polygons CASCADE;
+DROP TABLE IF EXISTS boundaries CASCADE;
+DROP TABLE IF EXISTS area_calculation CASCADE;
+DROP TABLE IF EXISTS client_user CASCADE;
+DROP TABLE IF EXISTS user_phone CASCADE;
+DROP TABLE IF EXISTS location CASCADE;
+DROP TABLE IF EXISTS user_system CASCADE;
+DROP TABLE IF EXISTS municipality CASCADE;
+DROP TABLE IF EXISTS department CASCADE;
+DROP TABLE IF EXISTS marital_status CASCADE;
+DROP TABLE IF EXISTS country CASCADE;
+DROP TABLE IF EXISTS role CASCADE;
+-- ==========================================
+-- 2. CREACIÓN DE TABLAS POR MÓDULOS
+-- ==========================================
+
+-- ------------------------------------------
+-- MÓDULO 1: CATÁLOGOS BASE
+-- ------------------------------------------
+
+-- Tabla: role
+-- Descripción: Almacena los diferentes roles o perfiles de permisos que pueden tener los usuarios internos del sistema.
+CREATE TABLE role
+(
+    id          bigserial PRIMARY KEY,
+    name        character varying(50)  NOT NULL UNIQUE,
+    description character varying(255) NOT NULL
+);
+
+-- Tabla: country
+-- Descripción: Catálogo general de países utilizado para registrar la nacionalidad de los usuarios del sistema.
+CREATE TABLE country
+(
+    id       bigserial PRIMARY KEY,
+    name     character varying(150) NOT NULL,
+    iso_code character varying(100) UNIQUE
+);
+
+-- Tabla: marital_status
+-- Descripción: Catálogo de estados civiles aplicados en el perfil de los usuarios internos.
+CREATE TABLE marital_status
+(
+    id          bigserial PRIMARY KEY,
+    name        character varying(50)  NOT NULL UNIQUE,
+    description character varying(255) NOT NULL
+);
+
+-- Tabla: department
+-- Descripción: Catálogo geográfico principal que almacena los departamentos del país.
+CREATE TABLE department
+(
+    numerical_code character varying(10) PRIMARY KEY,
+    name           character varying(100) NOT NULL
+);
+
+-- Tabla: process_type
+-- Descripción: Catálogo que define los tipos de trámites legales disponibles en el sistema (Ej. Titulación Supletoria, Divorcio, etc.).
+CREATE TABLE process_type
+(
+    id          bigserial PRIMARY KEY,
+    name        character varying(100) NOT NULL,
+    description character varying(255)
+);
+
+-- Tabla: payment_category
+-- Descripción: Catálogo que define las categorías de pago o transacciones (Ej. Anticipo, Abono Parcial, Gasto de Oficina, Ropa, Viajes).
+CREATE TABLE payment_category
+(
+    id          bigserial PRIMARY KEY,
+    name        character varying(50) NOT NULL,
+    description character varying(255)
+);
+
+-- Tabla: notification_type
+-- Descripción: Catálogo que define los tipos de notificaciones que el sistema puede enviar por correo electrónico (Ej. RECORDATORIO_PAGO, PLAZO_LEGAL, 2FA).
+CREATE TABLE notification_type
+(
+    id          bigserial PRIMARY KEY,
+    name        character varying(50) NOT NULL,
+    description character varying(255)
+);
+
+-- ------------------------------------------
+-- MÓDULO 2: USUARIOS, CLIENTES Y UBICACIONES
+-- ------------------------------------------
+
+-- Tabla: municipality
+-- Descripción: Catálogo geográfico secundario que almacena los municipios asociados a un departamento específico.
+CREATE TABLE municipality
+(
+    id                        bigserial PRIMARY KEY,
+    name                      character varying     NOT NULL,
+    numerical_code_department character varying(10) NOT NULL,
+    CONSTRAINT fk_municipality_department FOREIGN KEY (numerical_code_department) REFERENCES department (numerical_code),
+    CONSTRAINT uk_municipality_name_department UNIQUE (name, numerical_code_department)
+);
+
+-- Tabla: user_system
+-- Descripción: Almacena la información de los operadores, administradores y personal interno que utiliza la plataforma.
+CREATE TABLE user_system
+(
+    dpi                character varying(15) PRIMARY KEY,
+    first_name         character varying(100) NOT NULL,
+    last_name          character varying(100) NOT NULL,
+    age                integer                NOT NULL,
+    email              character varying(100) NOT NULL UNIQUE,
+    password_hash      character varying(255) NOT NULL,
+    id_marital_status  bigint                 NOT NULL,
+    id_nationality     bigint                 NOT NULL,
+    id_role            bigint                 NOT NULL,
+    created_at         date                   NOT NULL,
+    two_factor_enabled boolean                DEFAULT FALSE NOT NULL,
+    two_factor_code    character varying(255),
+    two_factor_expiry  timestamp,
+    CONSTRAINT fk_user_marital_status FOREIGN KEY (id_marital_status) REFERENCES marital_status (id),
+    CONSTRAINT fk_user_nacionality FOREIGN KEY (id_nationality) REFERENCES country (id),
+    CONSTRAINT fk_user_role FOREIGN KEY (id_role) REFERENCES role (id)
+);
+
+-- Tabla: client_user
+-- Descripción: Almacena la información de los clientes externos que solicitan servicios o trámites en la plataforma.
+CREATE TABLE client_user
+(
+    dpi        character varying(15) PRIMARY KEY,
+    first_name character varying(100) NOT NULL,
+    last_name  character varying(100) NOT NULL,
+    email      character varying(100) NOT NULL,
+    phone      character varying(13)  NOT NULL,
+    created_at date                   NOT NULL
+);
+
+-- Tabla: location
+-- Descripción: Registra las direcciones físicas exactas y su ubicación geográfica asociada a los usuarios del sistema.
+CREATE TABLE location
+(
+    id                        bigserial PRIMARY KEY,
+    dpi_user                  character varying(15)  NOT NULL,
+    exact_address             character varying(255) NOT NULL,
+    id_municipality           bigint                 NOT NULL,
+    numerical_code_department character varying(10)  NOT NULL,
+    CONSTRAINT fk_location_user FOREIGN KEY (dpi_user) REFERENCES user_system (dpi),
+    CONSTRAINT fk_location_municipality FOREIGN KEY (id_municipality) REFERENCES municipality (id),
+    CONSTRAINT fk_location_numerical_code_department FOREIGN KEY (numerical_code_department) REFERENCES department (numerical_code)
+);
+
+-- Tabla: user_phone
+-- Descripción: Permite almacenar múltiples números telefónicos de contacto para los usuarios internos del sistema.
+CREATE TABLE user_phone
+(
+    id       bigserial PRIMARY KEY,
+    dpi_user character varying(15) NOT NULL,
+    phone    character varying(12) NOT NULL,
+    CONSTRAINT fk_phone_user FOREIGN KEY (dpi_user) REFERENCES user_system (dpi)
+);
+
+-- Tabla: client_document
+-- Descripción: Almacena fotos/fotocopias del DPI u otros documentos personales generales del cliente.
+CREATE TABLE client_document
+(
+    id            bigserial PRIMARY KEY,
+    dpi_client    character varying(15)  NOT NULL,
+    document_type character varying(50)  NOT NULL,
+    file_url      character varying(255) NOT NULL,
+    created_at    date                   NOT NULL,
+    CONSTRAINT fk_client_document_client FOREIGN KEY (dpi_client) REFERENCES client_user (dpi)
+);
+
+-- ------------------------------------------
+-- MÓDULO 3: CÁLCULO DE ÁREAS
+-- ------------------------------------------
+
+-- Tabla: area_calculation
+-- Descripción: Cabecera principal del registro de cálculos de terrenos o propiedades realizados para los clientes.
+CREATE TABLE area_calculation
+(
+    id                       bigserial PRIMARY KEY,
+    dpi_client               character varying(15)  NOT NULL,
+    id_user_system           character varying(15)  NOT NULL,
+    terrain_name             character varying(255) NOT NULL,
+    general_description      text,
+    total_area_square_meters double precision       NOT NULL,
+    legal_notice             text                   NOT NULL,
+    created_at               date                   NOT NULL,
+    updated_at               date,
+    property_type            character varying(20)  NOT NULL,
+    CONSTRAINT fk_user_system FOREIGN KEY (id_user_system) REFERENCES user_system (dpi),
+    CONSTRAINT fk_client_calculate FOREIGN KEY (dpi_client) REFERENCES client_user (dpi)
+);
+
+-- Tabla: boundaries
+-- Descripción: Almacena los límites o colindancias individuales que conforman el perímetro de un terreno calculado.
+CREATE TABLE boundaries
+(
+    id                  bigserial PRIMARY KEY,
+    id_area_calculation bigint NOT NULL,
+    side_number         bigint NOT NULL,
+    reference_point     character varying(150),
+    orientation         character varying,
+    CONSTRAINT fk_boundaries_area_calculation FOREIGN KEY (id_area_calculation) REFERENCES area_calculation (id)
+);
+
+-- Tabla: boundancy_measurements
+-- Descripción: Detalla las medidas físicas correspondientes a cada colindancia, soportando conversión entre unidades.
+CREATE TABLE boundancy_measurements
+(
+    id                     bigserial PRIMARY KEY,
+    id_boundaries          bigint                NOT NULL,
+    unit_type              character varying(20) NOT NULL,
+    original_value         double precision      NOT NULL,
+    conversion_factor      double precision      NOT NULL,
+    value_converted_meters double precision      NOT NULL,
+    CONSTRAINT fk_boundancy_measurements FOREIGN KEY (id_boundaries) REFERENCES boundaries (id)
+);
+
+-- Tabla: sub_polygons
+-- Descripción: Almacena la subdivisión de lotes o sub-polígonos derivados de un cálculo de área principal.
+CREATE TABLE sub_polygons
+(
+    id                     bigserial PRIMARY KEY,
+    id_area_calculated     bigint                 NOT NULL,
+    sub_lot_name           character varying(100) NOT NULL,
+    division_type          character varying(50)  NOT NULL,
+    calcualted_area_meters double precision       NOT NULL,
+    area_calculated_varas  double precision,
+    created_at             date                   NOT NULL,
+    CONSTRAINT fk_sub_polygons_area_calculated FOREIGN KEY (id_area_calculated) REFERENCES area_calculation (id)
+);
+
+-- ------------------------------------------
+-- MÓDULO 4: TRÁMITES Y EXPEDIENTES
+-- ------------------------------------------
+
+-- Tabla: legal_process
+-- Descripción: Expedientes o trámites activos por cliente (Soporta múltiples procesos por cliente).
+CREATE TABLE legal_process
+(
+    id                      bigserial PRIMARY KEY,
+    dpi_client              character varying(15) NOT NULL,
+    id_user_system_assigned character varying(15) NOT NULL,
+    id_process_type         bigint                NOT NULL,
+    current_status          character varying(50) NOT NULL,
+    general_details         text,
+    created_at              date                  NOT NULL,
+    updated_at              date,
+    CONSTRAINT fk_legal_process_client FOREIGN KEY (dpi_client) REFERENCES client_user (dpi),
+    CONSTRAINT fk_legal_process_user FOREIGN KEY (id_user_system_assigned) REFERENCES user_system (dpi),
+    CONSTRAINT fk_legal_process_type FOREIGN KEY (id_process_type) REFERENCES process_type (id)
+);
+
+-- Tabla: legal_process_step
+-- Descripción: Pasos ejecutados dentro del workflow legal (Ej. Memorial civil, requisitos presentados).
+CREATE TABLE legal_process_step
+(
+    id               bigserial PRIMARY KEY,
+    id_legal_process bigint                 NOT NULL,
+    step_name        character varying(150) NOT NULL,
+    step_description text,
+    is_completed     boolean                NOT NULL DEFAULT false,
+    completed_at     date,
+    CONSTRAINT fk_step_legal_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id)
+);
+
+-- Tabla: legal_process_document
+-- Descripción: Manejo documental asociado directamente al expediente activo del cliente (PDFs, fotos de escrituras).
+CREATE TABLE legal_process_document
+(
+    id               bigserial PRIMARY KEY,
+    id_legal_process bigint                 NOT NULL,
+    document_name    character varying(150) NOT NULL,
+    file_url         character varying(255) NOT NULL,
+    uploaded_at      date                   NOT NULL,
+    CONSTRAINT fk_process_doc_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id)
+);
+
+-- ------------------------------------------
+-- MÓDULO 5: FINANCIERO
+-- ------------------------------------------
+
+-- Tabla: expense_record
+-- Descripción: Registro unificado para todo egreso (sea de oficina, proceso o personal).
+CREATE TABLE expense_record
+(
+    id                  bigserial PRIMARY KEY,
+    scope               character varying(20) NOT NULL, -- 'PROCESO', 'OFICINA', 'PERSONAL'
+    id_legal_process    bigint,                         -- Opcional (si scope = 'PROCESO')
+    id_payment_category bigint                NOT NULL,
+    amount              double precision      NOT NULL,
+    description         text                  NOT NULL,
+    expense_date        date                  NOT NULL,
+    CONSTRAINT fk_expense_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id),
+    CONSTRAINT fk_expense_category FOREIGN KEY (id_payment_category) REFERENCES payment_category (id)
+);
+
+-- Tabla: income_record
+-- Descripción: Registro de ingresos financieros asociados a los trámites legales.
+CREATE TABLE income_record
+(
+    id               bigserial PRIMARY KEY,
+    id_legal_process bigint           NOT NULL,
+    amount           double precision NOT NULL,
+    description      text,
+    income_date      date             NOT NULL,
+    CONSTRAINT fk_income_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id)
+);
+
+-- Tabla: payment_schedule
+-- Descripción: Control de compromisos de pago (Cuentas por Cobrar al cliente o Por Pagar del despacho).
+CREATE TABLE payment_schedule
+(
+    id               bigserial PRIMARY KEY,
+    id_legal_process bigint,
+    dpi_client       character varying(15),
+    payment_type     character varying(20) NOT NULL, -- 'POR_COBRAR', 'POR_PAGAR'
+    amount           double precision      NOT NULL,
+    due_date         date                  NOT NULL,
+    is_paid          boolean DEFAULT false,
+    description      text                  NOT NULL,
+    CONSTRAINT fk_payment_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id),
+    CONSTRAINT fk_payment_client FOREIGN KEY (dpi_client) REFERENCES client_user (dpi)
+);
+
+-- ------------------------------------------
+-- MÓDULO 6: AGENDA, CITAS Y NOTIFICACIONES
+-- ------------------------------------------
+
+-- Tabla: appointment_request
+-- Descripción: Gestiona las solicitudes de citas realizadas por los clientes, incluyendo su estado y el personal asignado. Con enlace opcional a Google Calendar.
+CREATE TABLE appointment_request
+(
+    id                      bigserial PRIMARY KEY,
+    dpi_client              character varying(15)  NOT NULL,
+    id_user_system_assigned character varying(15),
+    id_legal_process        bigint,
+    location_place          character varying(255) NOT NULL,
+    description             text                   NOT NULL,
+    appointment_date        timestamp              NOT NULL,
+    status                  character varying(50)  NOT NULL,
+    google_event_id         character varying(255) UNIQUE,
+    created_at              date                   NOT NULL,
+    CONSTRAINT fk_apointment_client FOREIGN KEY (dpi_client) REFERENCES client_user (dpi),
+    CONSTRAINT fk_apointment_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id),
+    CONSTRAINT fk_apointment_user FOREIGN KEY (id_user_system_assigned) REFERENCES user_system (dpi)
+);
+
+-- Tabla: legal_process_calendar
+-- Descripción: Gestiona la agenda y el calendario de eventos o plazos específicos asociados directamente a cada expediente legal. Con enlace opcional a Google Calendar.
+CREATE TABLE legal_process_calendar
+(
+    id                bigserial PRIMARY KEY,
+    id_legal_process  bigint                 NOT NULL,
+    event_title       character varying(150) NOT NULL,
+    event_description text,
+    event_date        timestamp              NOT NULL,
+    is_completed      boolean                NOT NULL DEFAULT false,
+    google_event_id   character varying(255) UNIQUE,
+    CONSTRAINT fk_calendar_legal_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id)
+);
+
+-- Tabla: notification_log
+-- Descripción: Historial de notificaciones. Se añaden llaves foráneas opcionales para rastrear qué proceso o qué usuario recibió el aviso.
+CREATE TABLE notification_log
+(
+    id                   bigserial PRIMARY KEY,
+    id_legal_process     bigint,
+    dpi_client           character varying(15),
+    recipient_email      character varying(100) NOT NULL,
+    subject              character varying(200) NOT NULL,
+    message_body         text                   NOT NULL,
+    id_notification_type bigint                 NOT NULL,
+    sent_at              timestamp              NOT NULL,
+    status               character varying(30)  NOT NULL,
+    CONSTRAINT fk_notification_log_type FOREIGN KEY (id_notification_type) REFERENCES notification_type (id),
+    CONSTRAINT fk_notification_log_process FOREIGN KEY (id_legal_process) REFERENCES legal_process (id),
+    CONSTRAINT fk_notification_log_client FOREIGN KEY (dpi_client) REFERENCES client_user (dpi)
+);

@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -47,4 +48,14 @@ public class UserSystemEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
+
+    @Builder.Default
+    @Column(name = "two_factor_enabled", nullable = false)
+    private boolean twoFactorEnabled = false;
+
+    @Column(name = "two_factor_code", length = 255)
+    private String twoFactorCode;
+
+    @Column(name = "two_factor_expiry")
+    private LocalDateTime twoFactorExpiry;
 }
