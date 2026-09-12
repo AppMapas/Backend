@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -13,7 +14,7 @@ import java.time.LocalDate;
 @Builder
 @Entity
 @Table(name = "user_system")
-public class UserSystem {
+public class UserSystemEntity {
     @Id
     @Column(length = 15, nullable = false)
     private String dpi;
@@ -43,8 +44,18 @@ public class UserSystem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_role", nullable = false)
-    private Role role;
+    private RoleEntity role;
 
     @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
+
+    @Builder.Default
+    @Column(name = "two_factor_enabled", nullable = false)
+    private boolean twoFactorEnabled = false;
+
+    @Column(name = "two_factor_code", length = 255)
+    private String twoFactorCode;
+
+    @Column(name = "two_factor_expiry")
+    private LocalDateTime twoFactorExpiry;
 }

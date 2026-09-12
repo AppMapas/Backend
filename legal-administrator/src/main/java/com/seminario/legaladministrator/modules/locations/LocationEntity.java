@@ -1,6 +1,6 @@
 package com.seminario.legaladministrator.modules.locations;
 
-import com.seminario.legaladministrator.modules.users.UserSystem;
+import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,7 +18,7 @@ public class LocationEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dpi_user", nullable = false)
-    private UserSystem userSystem;
+    private UserSystemEntity userSystem;
 
     @Column(name = "exact_address", nullable = false, length = 255)
     private String exactAddress;

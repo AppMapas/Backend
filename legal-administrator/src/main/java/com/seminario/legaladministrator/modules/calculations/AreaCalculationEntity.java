@@ -1,7 +1,7 @@
 package com.seminario.legaladministrator.modules.calculations;
 
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
-import com.seminario.legaladministrator.modules.users.UserSystem;
+import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -25,7 +25,7 @@ public class AreaCalculationEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_user_system", nullable = false)
-    private UserSystem userSystem;
+    private UserSystemEntity userSystem;
 
     @Column(name = "terrain_name", nullable = false, length = 255)
     private String terrainName;
