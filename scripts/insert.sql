@@ -71,10 +71,3 @@ INSERT INTO municipality (name, numerical_code_department) VALUES
 ('Flores Costa Cuca', (SELECT numerical_code FROM department WHERE name = 'Quetzaltenango')),
 ('La Esperanza', (SELECT numerical_code FROM department WHERE name = 'Quetzaltenango')),
 ('Palestina de Los Altos', (SELECT numerical_code FROM department WHERE name = 'Quetzaltenango'));
-
--- 6. Inserción de Usuarios del Sistema (Uno por cada rol requerido)
--- Nota: Se asume id 1=Administrador, 2=Abogada, 3=Secretaria según el orden de inserción de roles.
-INSERT INTO user_system (dpi, first_name, last_name, age, email, password_hash, id_marital_status, id_nationality, id_role, created_at) VALUES
-('3001123450101', 'Carlos', 'Administrador', 35, 'admin@system.com', '$2a$10$DummyHashPasswordAdmin123', 1, 1, 1, CURRENT_DATE),
-('3002234560901', 'Ana', 'Gómez Pérez', 30, 'abogada@system.com', '$2a$10$DummyHashPasswordAbogada456', 1, 1, 2, CURRENT_DATE),
-('3003345670301', 'María', 'López Ruiz', 26, 'secretaria@system.com', '$2a$10$DummyHashPasswordSecretaria789', 1, 1, 3, CURRENT_DATE);

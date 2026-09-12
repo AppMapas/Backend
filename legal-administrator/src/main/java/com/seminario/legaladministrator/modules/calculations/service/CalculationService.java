@@ -10,7 +10,7 @@ import com.seminario.legaladministrator.modules.calculations.repository.AreaCalc
 import com.seminario.legaladministrator.modules.calculations.repository.BoundancyMeasurementsRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundariesRepository;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
-import com.seminario.legaladministrator.modules.users.UserSystem;
+import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ public class CalculationService {
     private final BoundancyMeasurementsRepository measurementsRepository;
 
     @Transactional
-    public AreaCalculationEntity saveCalculation(AreaCalculationRequestDto request, ClientUserEntity client, UserSystem userSystem) {
+    public AreaCalculationEntity saveCalculation(AreaCalculationRequestDto request, ClientUserEntity client, UserSystemEntity userSystem) {
         // 1. Crear y guardar la entidad principal del terreno
         AreaCalculationEntity areaCalculation = AreaCalculationEntity.builder()
                 .clientUser(client)

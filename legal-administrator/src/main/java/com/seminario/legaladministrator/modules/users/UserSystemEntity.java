@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @Builder
 @Entity
 @Table(name = "user_system")
-public class UserSystem {
+public class UserSystemEntity {
     @Id
     @Column(length = 15, nullable = false)
     private String dpi;
@@ -43,7 +43,7 @@ public class UserSystem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_role", nullable = false)
-    private Role role;
+    private RoleEntity role;
 
     @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;

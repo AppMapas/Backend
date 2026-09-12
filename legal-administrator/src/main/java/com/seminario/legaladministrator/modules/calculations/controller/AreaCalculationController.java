@@ -7,7 +7,7 @@ import com.seminario.legaladministrator.modules.calculations.dto.MeasurementRequ
 import com.seminario.legaladministrator.modules.calculations.service.CalculationService;
 import com.seminario.legaladministrator.modules.calculations.service.ConversionService;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
-import com.seminario.legaladministrator.modules.users.UserSystem;
+import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/calculations")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 public class AreaCalculationController {
     private final ConversionService conversionService;
@@ -33,11 +32,11 @@ public class AreaCalculationController {
     public ResponseEntity<AreaCalculationEntity> saveCalculation(
             @Valid @RequestBody AreaCalculationRequestDto request,
             @RequestParam String clientDpi,
-            @RequestParam Long userSystemId) {
+            @RequestParam String userSystemId) {
 
         // Simulación o mapeo previo de entidades dependientes (Cliente y Usuario del Sistema)
         ClientUserEntity client = ClientUserEntity.builder().dpi(clientDpi).build();
-        UserSystem userSystem = UserSystem.builder().id(userSystemId).build();
+        UserSystemEntity userSystem = UserSystemEntity.builder().dpi(userSystemId).build();
 
         AreaCalculationEntity savedCalculation = calculationService.saveCalculation(request, client, userSystem);
         return ResponseEntity.ok(savedCalculation);

@@ -9,16 +9,15 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "user_phone")
-public class UserPhone {
+@Table(name = "role")
+public class RoleEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dpi_user", nullable = false)
-    private UserSystem userSystem;
+    @Column(nullable = false, name = "name")
+    private String name;
 
-    @Column(nullable = false, length = 12)
-    private String phone;
+    @Column(nullable = false, name = "description")
+    private String description;
 }

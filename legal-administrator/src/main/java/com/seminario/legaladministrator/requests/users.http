@@ -1,0 +1,50 @@
+### Variables globales
+@baseUrl = http://localhost:8080/api/v1
+
+### 1. Registrar Administrador
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+  "dpi": "3001123450101",
+  "firstName": "Carlos",
+  "lastName": "Administrador",
+  "age": 35,
+  "email": "admin@system.com",
+  "password": "PasswordAdmin123",
+  "idMaritalStatus": 1,
+  "idNationality": 1,
+  "idRole": 1
+}
+
+### 2. Registrar Abogada
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+  "dpi": "3002234560901",
+  "firstName": "Ana",
+  "lastName": "Gómez Pérez",
+  "age": 30,
+  "email": "abogada@system.com",
+  "password": "HashPasswordAbogada456",
+  "idMaritalStatus": 1,
+  "idNationality": 1,
+  "idRole": 2
+}
+
+### 3. Registrar Secretaria
+POST {{baseUrl}}/users/register
+Content-Type: application/json
+
+{
+  "dpi": "3003345670301",
+  "firstName": "Daniela",
+  "lastName": "López Ruiz",
+  "age": 26,
+  "email": "secretaria@system.com",
+  "password": "PasswordSecretaria789",
+  "idMaritalStatus": 1,
+  "idNationality": 1,
+  "idRole": 3
+}
