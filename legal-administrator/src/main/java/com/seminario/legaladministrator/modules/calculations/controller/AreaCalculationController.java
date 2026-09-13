@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/calculations")
+@RequestMapping("/api/v1/calculations")
 @RequiredArgsConstructor
 public class AreaCalculationController {
     private final ConversionService conversionService;
