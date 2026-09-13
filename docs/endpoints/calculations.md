@@ -1,4 +1,4 @@
-# 📐 Cálculos de Área — `/api/calculations`
+# 📐 Cálculos de Área — `/api/v1/calculations`
 
 Módulo encargado de la conversión de unidades de medida (varas, metros, etc.) y el cálculo y almacenamiento del área total de terrenos mediante colindancias.
 
@@ -7,7 +7,7 @@ Módulo encargado de la conversión de unidades de medida (varas, metros, etc.) 
 
 ---
 
-## POST `/api/calculations/convert`
+## POST `/api/v1/calculations/convert`
 
 Convierte una lista de medidas desde distintas unidades al sistema métrico (metros).
 
@@ -63,7 +63,7 @@ Convierte una lista de medidas desde distintas unidades al sistema métrico (met
 
 ---
 
-## POST `/api/calculations/save`
+## POST `/api/v1/calculations/save`
 
 Guarda un cálculo de área completo (terreno, colindancias y medidas) asociado a un cliente y usuario del sistema.
 
@@ -81,42 +81,42 @@ Guarda un cálculo de área completo (terreno, colindancias y medidas) asociado 
 
 ```json
 {
-  "clientDpi": "9876543210123",
-  "userSystemId": 1,
-  "terrainName": "Finca El Roble",
-  "generalDescription": "Terreno ubicado en zona rural de San Marcos",
-  "propertyType": "RURAL",
+  "clientDpi": "2541234560101",
+  "userSystemId": "3001123450101",
+  "terrainName": "Terreno Los Pinos",
+  "generalDescription": "Lote de terreno ubicado en zona urbana",
+  "propertyType": "URBANA",
   "boundaries": [
     {
       "sideNumber": 1,
-      "referencePoint": "Norte",
+      "referencePoint": "Colinda con calle principal",
       "orientation": "N",
       "measurements": [
         {
-          "value": 50.0,
-          "unit": "metro"
+          "value": 25.5,
+          "unit": "varas"
         }
       ]
     },
     {
       "sideNumber": 2,
-      "referencePoint": "Sur",
+      "referencePoint": "Colinda con propiedad privada",
       "orientation": "S",
       "measurements": [
         {
-          "value": 45.5,
-          "unit": "vara"
+          "value": 25.5,
+          "unit": "varas"
         }
       ]
     },
     {
       "sideNumber": 3,
-      "referencePoint": "Este",
+      "referencePoint": "Colinda con callejón",
       "orientation": "E",
       "measurements": [
         {
-          "value": 30.0,
-          "unit": "metro"
+          "value": 40.0,
+          "unit": "varas"
         }
       ]
     }

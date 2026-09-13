@@ -4,13 +4,17 @@ import com.seminario.legaladministrator.modules.calculations.AreaCalculationEnti
 import com.seminario.legaladministrator.modules.calculations.BoundancyMeasurementsEntity;
 import com.seminario.legaladministrator.modules.calculations.BoundariesEntity;
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationRequestDto;
+import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
 import com.seminario.legaladministrator.modules.calculations.dto.BoundaryRequestDto;
 import com.seminario.legaladministrator.modules.calculations.dto.MeasurementRequestDto;
+import com.seminario.legaladministrator.modules.calculations.mapper.AreaCalculationMapper;
 import com.seminario.legaladministrator.modules.calculations.repository.AreaCalculationRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundancyMeasurementsRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundariesRepository;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
+import com.seminario.legaladministrator.modules.users.repository.ClientUserRepository;
+import com.seminario.legaladministrator.modules.users.repository.UserSystemRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,24 +29,31 @@ public class CalculationService {
     private final AreaCalculationRepository areaCalculationRepository;
     private final BoundariesRepository boundariesRepository;
     private final BoundancyMeasurementsRepository measurementsRepository;
+    private final ClientUserRepository clientUserRepository;
+    private final UserSystemRepository userSystemRepository;
+    private final AreaCalculationMapper areaCalculationMapper;
 
     @Transactional
-    public AreaCalculationEntity saveCalculation(AreaCalculationRequestDto request, ClientUserEntity client, UserSystemEntity userSystem) {
-        // 1. Crear y guardar la entidad principal del terreno
+    public AreaCalculationResponseDto saveCalculation(AreaCalculationRequestDto request) {
+        ClientUserEntity client = clientUserRepository.findById(request.getClientDpi())
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado con DPI: " + request.getClientDpi()));
+
+        UserSystemEntity userSystem = userSystemRepository.findById(request.getUserSystemId())
+                .orElseThrow(() -> new RuntimeException("Usuario del sistema no encontrado con DPI: " + request.getUserSystemId()));
+
         AreaCalculationEntity areaCalculation = AreaCalculationEntity.builder()
                 .clientUser(client)
                 .userSystem(userSystem)
                 .terrainName(request.getTerrainName())
                 .generalDescription(request.getGeneralDescription())
                 .propertyType(request.getPropertyType())
-                .totalAreaSquareMeters(0.0) // Se calculará o actualizará posteriormente según la lógica de polígonos
+                .totalAreaSquareMeters(0.0)
                 .legalNotice("Cálculo generado bajo normativa legal de agrimensura")
                 .createdAt(LocalDate.now())
                 .build();
 
         AreaCalculationEntity savedAreaCalculation = areaCalculationRepository.save(areaCalculation);
 
-        // 2. Iterar y guardar las colindancias (boundaries) con sus respectivas medidas
         if (request.getBoundaries() != null) {
             for (BoundaryRequestDto boundaryDto : request.getBoundaries()) {
                 BoundariesEntity boundary = BoundariesEntity.builder()
@@ -54,7 +65,6 @@ public class CalculationService {
 
                 BoundariesEntity savedBoundary = boundariesRepository.save(boundary);
 
-                // 3. Procesar las medidas y aplicar la conversión (1 vara = 0.836 metros)
                 if (boundaryDto.getMeasurements() != null) {
                     for (MeasurementRequestDto measurementDto : boundaryDto.getMeasurements()) {
                         double factor = getConversionFactor(measurementDto.getUnit());
@@ -74,14 +84,14 @@ public class CalculationService {
             }
         }
 
-        return savedAreaCalculation;
+        return areaCalculationMapper.toResponseDto(savedAreaCalculation);
     }
 
     private double getConversionFactor(String unitType) {
         if (unitType == null) return 1.0;
         return switch (unitType.toLowerCase()) {
             case "vara", "varas" -> VARA_CONVERSION_FACTOR;
-            default -> 1.0; // Metros u otras unidades base
+            default -> 1.0;
         };
     }
 }

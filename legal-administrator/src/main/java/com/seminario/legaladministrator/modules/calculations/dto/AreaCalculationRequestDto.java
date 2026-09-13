@@ -16,7 +16,7 @@ public class AreaCalculationRequestDto {
     private String clientDpi;
 
     @NotNull(message = "El DPI del usuario del sistema es obligatorio")
-    private Long userSystemId;
+    private String userSystemId;
 
     @NotBlank(message = "El nombre del terreno es obligatorio")
     private String terrainName;

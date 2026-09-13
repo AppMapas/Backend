@@ -2,6 +2,7 @@ package com.seminario.legaladministrator.modules.calculations.controller;
 
 import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationRequestDto;
+import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
 import com.seminario.legaladministrator.modules.calculations.dto.ConversionResponseDto;
 import com.seminario.legaladministrator.modules.calculations.dto.MeasurementRequestDto;
 import com.seminario.legaladministrator.modules.calculations.service.CalculationService;
@@ -29,16 +30,10 @@ public class AreaCalculationController {
     }
 
     @PostMapping("/save")
-    public ResponseEntity<AreaCalculationEntity> saveCalculation(
-            @Valid @RequestBody AreaCalculationRequestDto request,
-            @RequestParam String clientDpi,
-            @RequestParam String userSystemId) {
+    public ResponseEntity<AreaCalculationResponseDto> saveCalculation(
+            @Valid @RequestBody AreaCalculationRequestDto request) {
 
-        // Simulación o mapeo previo de entidades dependientes (Cliente y Usuario del Sistema)
-        ClientUserEntity client = ClientUserEntity.builder().dpi(clientDpi).build();
-        UserSystemEntity userSystem = UserSystemEntity.builder().dpi(userSystemId).build();
-
-        AreaCalculationEntity savedCalculation = calculationService.saveCalculation(request, client, userSystem);
+        AreaCalculationResponseDto savedCalculation = calculationService.saveCalculation(request);
         return ResponseEntity.ok(savedCalculation);
     }
 }
