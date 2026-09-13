@@ -4,10 +4,7 @@ import com.seminario.legaladministrator.modules.calculations.AreaCalculationEnti
 import com.seminario.legaladministrator.modules.calculations.BoundancyMeasurementsEntity;
 import com.seminario.legaladministrator.modules.calculations.BoundariesEntity;
 import com.seminario.legaladministrator.modules.calculations.UnitConversion;
-import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationRequestDto;
-import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
-import com.seminario.legaladministrator.modules.calculations.dto.BoundaryRequestDto;
-import com.seminario.legaladministrator.modules.calculations.dto.MeasurementRequestDto;
+import com.seminario.legaladministrator.modules.calculations.dto.*;
 import com.seminario.legaladministrator.modules.calculations.mapper.AreaCalculationMapper;
 import com.seminario.legaladministrator.modules.calculations.repository.AreaCalculationRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundancyMeasurementsRepository;
@@ -162,5 +159,54 @@ public class CalculationService {
 
         double estimatedArea = (semiPerimeter - maxSide) * (semiPerimeter);
         return Math.round(Math.max(estimatedArea, 0.0) * 100.0) / 100.0;
+    }
+
+    @Transactional
+    public List<AreaCalculationResponseDto> splitPolygon(PolygonSplitRequestDto request) {
+        // 1. Recuperar el polígono principal guardado previamente
+        AreaCalculationEntity parentPolygon = areaCalculationRepository.findById(request.getParentCalculationId())
+                .orElseThrow(() -> new RuntimeException("Polígono principal no encontrado con ID: " + request.getParentCalculationId()));
+
+        List<AreaCalculationResponseDto> subPolygonsResult = new java.util.ArrayList<>();
+
+        // 2. Procesar las líneas de corte para descomponer las áreas
+        // (A nivel lógico backend puro, se calculan las sub-áreas restando la proporción geométrica o
+        // procesando los vértices resultantes de la intersección de las líneas de corte)
+
+        for (SplitLineDto cut : request.getSplitLines()) {
+            // Cálculo geométrico de la fracción recortada
+            double cutArea = calculateGeometricCutArea(cut.getPoints());
+
+            // Crear una nueva entidad de sub-lote asociada al mismo cliente
+            AreaCalculationEntity subLot = AreaCalculationEntity.builder()
+                    .clientUser(parentPolygon.getClientUser())
+                    .userSystem(parentPolygon.getUserSystem())
+                    .terrainName(parentPolygon.getTerrainName() + " - " + cut.getCutName())
+                    .generalDescription("Sub-lote resultante de división por: " + cut.getCutName())
+                    .propertyType(parentPolygon.getPropertyType())
+                    .totalAreaSquareMeters(cutArea)
+                    .legalNotice("Sub-área fraccionada de referencia técnica. Sujeta a validación notarial.")
+                    .createdAt(java.time.LocalDate.now())
+                    .build();
+
+            AreaCalculationEntity savedSubLot = areaCalculationRepository.save(subLot);
+            subPolygonsResult.add(areaCalculationMapper.toResponseDto(savedSubLot));
+        }
+
+        return subPolygonsResult;
+    }
+
+    private double calculateGeometricCutArea(List<CoordinateDto> points) {
+        if (points == null || points.size() < 3) return 0.0;
+
+        // Algoritmo de Gauss / Shoelace para áreas poligonales cerradas a partir de coordenadas (X, Y)
+        double area = 0.0;
+        int n = points.size();
+        for (int i = 0; i < n; i++) {
+            CoordinateDto p1 = points.get(i);
+            CoordinateDto p2 = points.get((i + 1) % n);
+            area += (p1.getX() * p2.getY()) - (p2.getX() * p1.getY());
+        }
+        return Math.round(Math.abs(area / 2.0) * 100.0) / 100.0;
     }
 }

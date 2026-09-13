@@ -1,10 +1,7 @@
 package com.seminario.legaladministrator.modules.calculations.controller;
 
 import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
-import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationRequestDto;
-import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
-import com.seminario.legaladministrator.modules.calculations.dto.ConversionResponseDto;
-import com.seminario.legaladministrator.modules.calculations.dto.MeasurementRequestDto;
+import com.seminario.legaladministrator.modules.calculations.dto.*;
 import com.seminario.legaladministrator.modules.calculations.service.CalculationService;
 import com.seminario.legaladministrator.modules.calculations.service.ConversionService;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
@@ -43,5 +40,12 @@ public class AreaCalculationController {
             @Valid @RequestBody AreaCalculationRequestDto request) {
         AreaCalculationResponseDto response = calculationService.calculateAndSavePolygon(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/split")
+    public ResponseEntity<List<AreaCalculationResponseDto>> splitPolygon(
+            @Valid @RequestBody PolygonSplitRequestDto request) {
+        List<AreaCalculationResponseDto> subLots = calculationService.splitPolygon(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(subLots);
     }
 }

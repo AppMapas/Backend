@@ -265,3 +265,66 @@ Response
     "updatedAt": null,
     "propertyType": "RURAL"
 }
+
+
+### Particionar terreno
+{
+  "parentCalculationId": 1,
+  "splitLines": [
+    {
+      "cutName": "Paso de Servidumbre Norte",
+      "points": [
+        { "x": 0.0, "y": 0.0 },
+        { "x": 10.0, "y": 0.0 },
+        { "x": 10.0, "y": 2.0 },
+        { "x": 0.0, "y": 2.0 }
+      ]
+    },
+    {
+      "cutName": "Sub-lote Habitacional Principal",
+      "points": [
+        { "x": 0.0, "y": 2.0 },
+        { "x": 10.0, "y": 2.0 },
+        { "x": 10.0, "y": 25.0 },
+        { "x": 0.0, "y": 25.0 }
+      ]
+    }
+  ]
+}
+
+
+respuesta:
+[
+    {
+        "id": 4,
+        "clientUser": {
+            "dpi": "2541234560101"
+        },
+        "userSystem": {
+            "dpi": "3001123450101"
+        },
+        "terrainName": "Terreno Los Pinos - Paso de Servidumbre Norte",
+        "generalDescription": "Sub-lote resultante de división por: Paso de Servidumbre Norte",
+        "totalAreaSquareMeters": 20.0,
+        "legalNotice": "Sub-área fraccionada de referencia técnica. Sujeta a validación notarial.",
+        "createdAt": "2026-09-12",
+        "updatedAt": null,
+        "propertyType": "URBANA"
+    },
+    {
+        "id": 5,
+        "clientUser": {
+            "dpi": "2541234560101"
+        },
+        "userSystem": {
+            "dpi": "3001123450101"
+        },
+        "terrainName": "Terreno Los Pinos - Sub-lote Habitacional Principal",
+        "generalDescription": "Sub-lote resultante de división por: Sub-lote Habitacional Principal",
+        "totalAreaSquareMeters": 230.0,
+        "legalNotice": "Sub-área fraccionada de referencia técnica. Sujeta a validación notarial.",
+        "createdAt": "2026-09-12",
+        "updatedAt": null,
+        "propertyType": "URBANA"
+    }
+]
