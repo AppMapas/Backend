@@ -1,7 +1,9 @@
 package com.seminario.legaladministrator.modules.users.controller;
 
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
+import com.seminario.legaladministrator.modules.users.dto.ToggleTwoFactorRequestDto;
 import com.seminario.legaladministrator.modules.users.dto.UserSystemRegisterRequestDto;
+import com.seminario.legaladministrator.modules.users.dto.UserSystemResponseDto;
 import com.seminario.legaladministrator.modules.users.service.UserSystemService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,20 +20,20 @@ public class UserSystemController {
     private final UserSystemService userSystemService;
 
     @GetMapping
-    public ResponseEntity<List<UserSystemEntity>> getAllUsers() {
+    public ResponseEntity<List<UserSystemResponseDto>> getAllUsers() {
         return ResponseEntity.ok(userSystemService.findAll());
     }
 
     @GetMapping("/{dpi}")
-    public ResponseEntity<UserSystemEntity> getUserByDpi(@PathVariable String dpi) {
+    public ResponseEntity<UserSystemResponseDto> getUserByDpi(@PathVariable String dpi) {
         return userSystemService.findByDpi(dpi)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserSystemEntity> createUser(@Valid @RequestBody UserSystemRegisterRequestDto dto) {
-        UserSystemEntity savedUser = userSystemService.createUser(dto);
+    public ResponseEntity<UserSystemResponseDto> createUser(@Valid @RequestBody UserSystemRegisterRequestDto dto) {
+        UserSystemResponseDto savedUser = userSystemService.createUser(dto);
         return ResponseEntity.ok(savedUser);
     }
 
@@ -55,6 +57,14 @@ public class UserSystemController {
     @DeleteMapping("/{dpi}")
     public ResponseEntity<Void> deleteUser(@PathVariable String dpi) {
         userSystemService.deleteUser(dpi);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{dpi}/2fa")
+    public ResponseEntity<Void> toggleTwoFactor(
+            @PathVariable String dpi,
+            @Valid @RequestBody ToggleTwoFactorRequestDto request) {
+        userSystemService.updateTwoFactorStatus(dpi, request.getEnabled());
         return ResponseEntity.noContent().build();
     }
 }

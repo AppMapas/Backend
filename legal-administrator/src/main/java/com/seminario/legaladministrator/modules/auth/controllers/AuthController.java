@@ -1,5 +1,6 @@
-package com.seminario.legaladministrator.modules.auth;
+package com.seminario.legaladministrator.modules.auth.controllers;
 
+import com.seminario.legaladministrator.modules.auth.AuthService;
 import com.seminario.legaladministrator.modules.auth.dto.LoginRequestDto;
 import com.seminario.legaladministrator.modules.auth.dto.LoginResponseDto;
 import com.seminario.legaladministrator.modules.auth.dto.TwoFactorSetupResponseDto;
@@ -30,13 +31,20 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/2fa/setup")
+    /*@PostMapping("/2fa/setup")
     public ResponseEntity<TwoFactorSetupResponseDto> setup2fa(
             Authentication authentication,
             @RequestParam(required = false) String email,
             @RequestBody(required = false) Map<String, String> body) {
         String targetEmail = resolveEmail(authentication, email, body);
         TwoFactorSetupResponseDto response = authService.setup2fa(targetEmail);
+        return ResponseEntity.ok(response);
+    }*/
+
+    @PostMapping("/2fa/setup")
+    public ResponseEntity<TwoFactorSetupResponseDto> setup2fa(@RequestBody Map<String, String> requestBody) {
+        String email = requestBody.get("email");
+        TwoFactorSetupResponseDto response = authService.setup2fa(email);
         return ResponseEntity.ok(response);
     }
 

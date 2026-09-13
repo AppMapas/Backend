@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Prueba Completa Login y 2FA - Legal Administrator</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 450px; margin: 30px auto; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input, button { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .secondary { background: #6c757d; }
+        .secondary:hover { background: #5a6268; }
+        .success-btn { background: #28a745; }
+        .success-btn:hover { background: #218838; }
+        .hidden { display: none; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .qr-container { text-align: center; margin-top: 10px; }
+        img { max-width: 180px; border: 1px solid #ddd; padding: 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- 1. PANTALLA DE LOGIN -->
+<div class="card" id="loginCard">
+    <h3>Iniciar Sesión</h3>
+    <input type="email" id="email" value="michaelmarin201831260@cunoc.edu.gt" placeholder="Correo electrónico">
+    <input type="password" id="password" value="admin12345" placeholder="Contraseña">
+    <button onclick="handleLogin()">Ingresar</button>
+    <button class="secondary" onclick="showSetupView()" style="margin-top: 5px;">Configurar / Obtener QR 2FA</button>
+    <p id="loginResult"></p>
+</div>
+
+<!-- 2. PANTALLA DE VERIFICACIÓN 2FA (Al hacer login si está activo) -->
+<div class="card hidden" id="twoFactorCard">
+    <h3>Verificación 2FA</h3>
+    <p>Tu cuenta requiere un código de Google Authenticator.</p>
+    <input type="text" id="totpCode" placeholder="Código de 6 dígitos" maxlength="6">
+    <button onclick="handleVerify2FA()">Verificar Código</button>
+    <button class="secondary" onclick="backToLogin()">Regresar</button>
+    <p id="totpResult"></p>
+</div>
+
+<!-- 3. PANEL DE CONFIGURACIÓN 2FA (Para pedir el QR al backend) -->
+<div class="card hidden" id="setup2faCard">
+    <h3>Configurar Google Authenticator</h3>
+    <p>Ingresa tu correo para generar el código QR de sincronización:</p>
+    <input type="email" id="emailSetup" placeholder="Correo electrónico" value="michaelmarin@cunoc.edu.gt">
+    <button onclick="requestQrSetup()">Obtener QR y Clave Secreta</button>
+
+    <div class="qr-container hidden" id="qrSection">
+        <p>Escanea este código QR en tu app (Google Authenticator / Authy):</p>
+        <img id="qrImage" src="" alt="Código QR 2FA">
+        <p style="font-size: 12px; color: #666;">Clave manual: <span id="manualKey" style="font-family: monospace; font-weight: bold;"></span></p>
+
+        <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+        <p>Introduce el código de 6 dígitos para <strong>confirmar y activar</strong> el 2FA:</p>
+        <input type="text" id="confirmCode" placeholder="Código de 6 dígitos" maxlength="6">
+        <button class="success-btn" onclick="confirmEnable2fa()">Confirmar y Activar 2FA</button>
+    </div>
+
+    <button class="secondary" onclick="backToLogin()" style="margin-top: 10px;">Volver al Login</button>
+    <p id="setupResult"></p>
+</div>
+
+<!-- 4. PANTALLA DE SESIÓN EXITOSA -->
+<div class="card hidden" id="successCard">
+    <h3 class="success">¡Sesión iniciada con éxito!</h3>
+    <p id="welcomeMsg"></p>
+    <button onclick="logout()">Cerrar Sesión</button>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080';
+    let currentUserEmail = '';
+
+    async function handleLogin() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const resultEl = document.getElementById('loginResult');
+
+        if (!email || !password) {
+            resultEl.className = 'error';
+            resultEl.innerText = 'Completa todos los campos.';
+            return;
+        }
+
+        currentUserEmail = email;
+        resultEl.innerText = 'Conectando...';
+        resultEl.className = '';
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
+
+            if (!response.ok) {
+                throw new Error(data.message || `Error HTTP: ${response.status}`);
+            }
+
+            if (data.twoFactorRequired === true) {
+                document.getElementById('loginCard').classList.add('hidden');
+                document.getElementById('twoFactorCard').classList.remove('hidden');
+            } else {
+                showSuccessScreen(data);
+            }
+
+        } catch (error) {
+            resultEl.className = 'error';
+            resultEl.innerText = error.message;
+        }
+    }
+
+    async function handleVerify2FA() {
+        const code = document.getElementById('totpCode').value;
+        const resultEl = document.getElementById('totpResult');
+
+        if (!code || code.length !== 6) {
+            resultEl.className = 'error';
+            resultEl.innerText = 'Ingresa un código válido de 6 dígitos.';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/auth/2fa/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentUserEmail, code: code })
+            });
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Código TOTP incorrecto.');
+            }
+
+            showSuccessScreen(data);
+
+        } catch (error) {
+            resultEl.className = 'error';
+            resultEl.innerText = error.message;
+        }
+    }
+
+    function showSetupView() {
+        document.getElementById('loginCard').classList.add('hidden');
+        document.getElementById('setup2faCard').classList.remove('hidden');
+        document.getElementById('emailSetup').value = document.getElementById('email').value;
+    }
+
+    // Pide al endpoint /api/v1/auth/2fa/setup el QR y la clave secreta
+    async function requestQrSetup() {
+        const email = document.getElementById('emailSetup').value;
+        const resultEl = document.getElementById('setupResult');
+
+        if (!email) {
+            resultEl.className = 'error';
+            resultEl.innerText = 'Ingresa tu correo electrónico.';
+            return;
+        }
+
+        currentUserEmail = email;
+        resultEl.innerText = 'Generando código QR...';
+        resultEl.className = '';
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/auth/2fa/setup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
+
+            if (!response.ok) {
+                throw new Error(data.message || 'No se pudo generar el código QR.');
+            }
+
+            // Mostramos los datos devueltos por TwoFactorSetupResponseDto
+            document.getElementById('qrImage').src = data.qrCodeUri;
+            document.getElementById('manualKey').innerText = data.manualEntryKey;
+            document.getElementById('qrSection').classList.remove('hidden');
+            resultEl.className = 'success';
+            resultEl.innerText = '¡QR generado con éxito! Escanéalo en tu app.';
+
+        } catch (error) {
+            resultEl.className = 'error';
+            resultEl.innerText = error.message;
+        }
+    }
+
+    // Confirma la habilitación enviando el código que da la app del celular a /api/v1/auth/2fa/enable
+    async function confirmEnable2fa() {
+        const code = document.getElementById('confirmCode').value;
+        const resultEl = document.getElementById('setupResult');
+
+        if (!code || code.length !== 6) {
+            resultEl.className = 'error';
+            resultEl.innerText = 'Ingresa un código de 6 dígitos válido.';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/auth/2fa/enable`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: currentUserEmail, code: code })
+            });
+
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : {};
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Código incorrecto o expirado.');
+            }
+
+            resultEl.className = 'success';
+            resultEl.innerText = '¡2FA habilitado exitosamente! Ya puedes iniciar sesión con normalidad.';
+            setTimeout(() => {
+                backToLogin();
+            }, 2000);
+
+        } catch (error) {
+            resultEl.className = 'error';
+            resultEl.innerText = error.message;
+        }
+    }
+
+    function showSuccessScreen(userData) {
+        document.getElementById('loginCard').classList.add('hidden');
+        document.getElementById('twoFactorCard').classList.add('hidden');
+        document.getElementById('setup2faCard').classList.add('hidden');
+        document.getElementById('successCard').classList.remove('hidden');
+
+        document.getElementById('welcomeMsg').innerText =
+            `Bienvenido, ${userData.firstName || currentUserEmail}. Rol: ${userData.role || 'Usuario'}. Sesión iniciada correctamente.`;
+    }
+
+    function backToLogin() {
+        document.getElementById('twoFactorCard').classList.add('hidden');
+        document.getElementById('setup2faCard').classList.add('hidden');
+        document.getElementById('successCard').classList.add('hidden');
+        document.getElementById('loginCard').classList.remove('hidden');
+        document.getElementById('loginResult').innerText = '';
+        document.getElementById('totpResult').innerText = '';
+        document.getElementById('setupResult').innerText = '';
+        document.getElementById('qrSection').classList.add('hidden');
+    }
+
+    function logout() {
+        backToLogin();
+        document.getElementById('email').value = '';
+        document.getElementById('password').value = '';
+    }
+</script>
+
+</body>
+</html>

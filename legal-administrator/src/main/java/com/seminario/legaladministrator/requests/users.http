@@ -39,7 +39,7 @@ Content-Type: application/json
 
 {
   "dpi": "3003345670301",
-  "firstName": "Daniela",
+  "firstName": "Rocío",
   "lastName": "López Ruiz",
   "age": 26,
   "email": "secretaria@system.com",
