@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -47,4 +48,7 @@ public class AreaCalculationEntity {
 
     @Column(name = "property_type", nullable = false, length = 20)
     private String propertyType;
+
+    @OneToMany(mappedBy = "areaCalculation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<BoundariesEntity> boundaries;
 }

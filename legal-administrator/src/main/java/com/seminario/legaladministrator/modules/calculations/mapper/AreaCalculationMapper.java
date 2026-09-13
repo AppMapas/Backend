@@ -4,6 +4,8 @@ import com.seminario.legaladministrator.modules.calculations.AreaCalculationEnti
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
 import org.springframework.stereotype.Component;
 
+import java.util.stream.Collectors;
+
 @Component
 public class AreaCalculationMapper {
     public AreaCalculationResponseDto toResponseDto(AreaCalculationEntity entity) {
@@ -32,6 +34,16 @@ public class AreaCalculationMapper {
         response.setCreatedAt(entity.getCreatedAt());
         response.setUpdatedAt(entity.getUpdatedAt());
         response.setPropertyType(entity.getPropertyType());
+
+        if (entity.getBoundaries() != null) {
+            response.setBoundaries(entity.getBoundaries().stream().map(boundary -> {
+                AreaCalculationResponseDto.BoundaryDto bDto = new AreaCalculationResponseDto.BoundaryDto();
+                bDto.setSideNumber(boundary.getSideNumber());
+                bDto.setOrientation(boundary.getOrientation());
+                bDto.setReferencePoint(boundary.getReferencePoint());
+                return bDto;
+            }).collect(Collectors.toList()));
+        }
 
         return response;
     }

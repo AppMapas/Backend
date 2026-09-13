@@ -3,6 +3,8 @@ package com.seminario.legaladministrator.modules.calculations;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -27,4 +29,7 @@ public class BoundariesEntity {
 
     @Column(length = 255)
     private String orientation;
+
+    @OneToMany(mappedBy = "boundaries", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<BoundancyMeasurementsEntity> measurements;
 }

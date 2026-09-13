@@ -3,6 +3,7 @@ package com.seminario.legaladministrator.modules.calculations.dto;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -20,6 +21,7 @@ public class AreaCalculationResponseDto {
     private LocalDate createdAt;
     private LocalDate updatedAt;
     private String propertyType;
+    private List<BoundaryDto> boundaries;
 
     @Data
     public static class ClientRefDto {
@@ -29,5 +31,19 @@ public class AreaCalculationResponseDto {
     @Data
     public static class UserSystemRefDto {
         private String dpi;
+    }
+
+    @Data
+    public static class BoundaryDto {
+        private Long sideNumber;
+        private String orientation;
+        private String referencePoint;
+        private List<MeasurementDto> measurements;
+    }
+
+    @Data
+    public static class MeasurementDto {
+        private Long id;
+        private Double valueConvertedMeters;
     }
 }
