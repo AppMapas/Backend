@@ -66,6 +66,7 @@ Convierte una lista de medidas desde distintas unidades al sistema métrico (met
 ## POST `/api/v1/calculations/save`
 
 Guarda un cálculo de área completo (terreno, colindancias y medidas) asociado a un cliente y usuario del sistema.
+Uso del endpoint: `/api/v1/calculations/save?clientDpi={dpi_cliente}&userSystemId={dpi_abogada}`
 
 **Autenticación requerida:** ✅ Bearer JWT  
 **Roles permitidos:** Cualquier usuario autenticado
@@ -184,3 +185,83 @@ Guarda un cálculo de área completo (terreno, colindancias y medidas) asociado 
 | `createdAt`            | Date    | Fecha de creación del registro (`YYYY-MM-DD`)          |
 | `updatedAt`            | Date    | Fecha de última actualización (puede ser `null`)       |
 | `propertyType`         | String  | Tipo de propiedad                                      |
+
+
+### /api/v1/calculations/polygon
+Request
+{
+  "clientDpi": "2541234560101",
+  "userSystemId": "3001123450101",
+  "terrainName": "Finca El Esfuerzo",
+  "generalDescription": "Terreno irregular ubicado en zona rural con múltiples unidades por lado",
+  "propertyType": "RURAL",
+  "boundaries": [
+    {
+      "sideNumber": 1,
+      "referencePoint": "Camino vecinal",
+      "orientation": "N",
+      "measurements": [
+        {
+          "value": 25.0,
+          "unit": "varas"
+        },
+        {
+          "value": 12.0,
+          "unit": "pulgadas"
+        }
+      ]
+    },
+    {
+      "sideNumber": 2,
+      "referencePoint": "Propiedad de Juan Pérez",
+      "orientation": "E",
+      "measurements": [
+        {
+          "value": 40.5,
+          "unit": "varas"
+        }
+      ]
+    },
+    {
+      "sideNumber": 3,
+      "referencePoint": "Río municipal",
+      "orientation": "S",
+      "measurements": [
+        {
+          "value": 30.0,
+          "unit": "varas"
+        }
+      ]
+    },
+    {
+      "sideNumber": 4,
+      "referencePoint": "Colindancia oeste",
+      "orientation": "W",
+      "measurements": [
+        {
+          "value": 35.0,
+          "unit": "varas"
+        }
+      ]
+    }
+  ]
+}
+
+
+Response
+{
+    "id": 3,
+    "clientUser": {
+        "dpi": "2541234560101"
+    },
+    "userSystem": {
+        "dpi": "3001123450101"
+    },
+    "terrainName": "Finca El Esfuerzo",
+    "generalDescription": "Terreno irregular ubicado en zona rural con múltiples unidades por lado",
+    "totalAreaSquareMeters": 1616.11,
+    "legalNotice": "ESTE DOCUMENTO ES UN CÁLCULO PRELIMINAR DE REFERENCIA TÉCNICA. No constituye un documento legal válido para trámites de titulación o inscripción ante el Registro General de la Propiedad. Para validaciones, escrituras y trámites legales oficiales, debe verificar y consultar estrictamente con el abogado que lleva el proceso.",
+    "createdAt": "2026-09-12",
+    "updatedAt": null,
+    "propertyType": "RURAL"
+}

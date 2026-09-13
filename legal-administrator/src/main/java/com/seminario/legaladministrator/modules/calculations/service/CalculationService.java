@@ -3,6 +3,7 @@ package com.seminario.legaladministrator.modules.calculations.service;
 import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
 import com.seminario.legaladministrator.modules.calculations.BoundancyMeasurementsEntity;
 import com.seminario.legaladministrator.modules.calculations.BoundariesEntity;
+import com.seminario.legaladministrator.modules.calculations.UnitConversion;
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationRequestDto;
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
 import com.seminario.legaladministrator.modules.calculations.dto.BoundaryRequestDto;
@@ -20,11 +21,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
 public class CalculationService {
-    private static final double VARA_CONVERSION_FACTOR = 0.836;
+    private static final String DEFAULT_LEGAL_NOTICE =
+            "ESTE DOCUMENTO ES UN CÁLCULO PRELIMINAR DE REFERENCIA TÉCNICA. " +
+                    "No constituye un documento legal válido para trámites de titulación o inscripción ante el Registro General de la Propiedad[cite: 1]. " +
+                    "Para validaciones, escrituras y trámites legales oficiales, debe verificar y consultar estrictamente con el abogado que lleva el proceso.";
 
     private final AreaCalculationRepository areaCalculationRepository;
     private final BoundariesRepository boundariesRepository;
@@ -35,63 +40,127 @@ public class CalculationService {
 
     @Transactional
     public AreaCalculationResponseDto saveCalculation(AreaCalculationRequestDto request) {
+        AreaCalculationEntity savedAreaCalculation = createAndSaveBaseCalculation(request, 0.0, "Cálculo generado bajo normativa legal de agrimensura");
+        processBoundaries(savedAreaCalculation, request.getBoundaries());
+        return areaCalculationMapper.toResponseDto(savedAreaCalculation);
+    }
+
+    @Transactional
+    public AreaCalculationResponseDto calculateAndSavePolygon(AreaCalculationRequestDto request) {
+        validatePolygonBoundaries(request.getBoundaries());
+
+        double[] sideLengthsInMeters = calculateSideLengths(request.getBoundaries());
+        double totalArea = calculatePolygonArea(sideLengthsInMeters);
+
+        String legalNoticeText = resolveLegalNotice(request.getLegalNotice());
+
+        AreaCalculationEntity savedAreaCalculation = createAndSaveBaseCalculation(request, totalArea, legalNoticeText);
+        processBoundaries(savedAreaCalculation, request.getBoundaries());
+
+        return areaCalculationMapper.toResponseDto(savedAreaCalculation);
+    }
+
+    private AreaCalculationEntity createAndSaveBaseCalculation(AreaCalculationRequestDto request, double totalArea, String legalNotice) {
         ClientUserEntity client = clientUserRepository.findById(request.getClientDpi())
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado con DPI: " + request.getClientDpi()));
 
         UserSystemEntity userSystem = userSystemRepository.findById(request.getUserSystemId())
                 .orElseThrow(() -> new RuntimeException("Usuario del sistema no encontrado con DPI: " + request.getUserSystemId()));
 
-        AreaCalculationEntity areaCalculation = AreaCalculationEntity.builder()
+        AreaCalculationEntity entity = AreaCalculationEntity.builder()
                 .clientUser(client)
                 .userSystem(userSystem)
                 .terrainName(request.getTerrainName())
                 .generalDescription(request.getGeneralDescription())
                 .propertyType(request.getPropertyType())
-                .totalAreaSquareMeters(0.0)
-                .legalNotice("Cálculo generado bajo normativa legal de agrimensura")
+                .totalAreaSquareMeters(totalArea)
+                .legalNotice(legalNotice)
                 .createdAt(LocalDate.now())
                 .build();
 
-        AreaCalculationEntity savedAreaCalculation = areaCalculationRepository.save(areaCalculation);
+        return areaCalculationRepository.save(entity);
+    }
 
-        if (request.getBoundaries() != null) {
-            for (BoundaryRequestDto boundaryDto : request.getBoundaries()) {
-                BoundariesEntity boundary = BoundariesEntity.builder()
-                        .areaCalculation(savedAreaCalculation)
-                        .sideNumber(boundaryDto.getSideNumber())
-                        .referencePoint(boundaryDto.getReferencePoint())
-                        .orientation(boundaryDto.getOrientation())
-                        .build();
+    private void validatePolygonBoundaries(List<BoundaryRequestDto> boundaries) {
+        if (boundaries == null || boundaries.size() < 3) {
+            throw new IllegalArgumentException("El polígono debe tener al menos 3 colindancias.");
+        }
+    }
 
-                BoundariesEntity savedBoundary = boundariesRepository.save(boundary);
+    private double[] calculateSideLengths(List<BoundaryRequestDto> boundaries) {
+        double[] sideLengths = new double[boundaries.size()];
+        for (int i = 0; i < boundaries.size(); i++) {
+            BoundaryRequestDto boundaryDto = boundaries.get(i);
+            double totalSideMeters = 0.0;
+            if (boundaryDto.getMeasurements() != null) {
+                for (MeasurementRequestDto mDto : boundaryDto.getMeasurements()) {
+                    totalSideMeters += mDto.getValue() * UnitConversion.getFactor(mDto.getUnit());
+                }
+            }
+            sideLengths[i] = totalSideMeters;
+        }
+        return sideLengths;
+    }
 
-                if (boundaryDto.getMeasurements() != null) {
-                    for (MeasurementRequestDto measurementDto : boundaryDto.getMeasurements()) {
-                        double factor = getConversionFactor(measurementDto.getUnit());
-                        double convertedMeters = measurementDto.getValue() * factor;
+    private void processBoundaries(AreaCalculationEntity savedAreaCalculation, List<BoundaryRequestDto> boundaries) {
+        if (boundaries == null) return;
 
-                        BoundancyMeasurementsEntity measurementEntity = BoundancyMeasurementsEntity.builder()
-                                .boundaries(savedBoundary)
-                                .unitType(measurementDto.getUnit())
-                                .originalValue(measurementDto.getValue())
-                                .conversionFactor(factor)
-                                .valueConvertedMeters(convertedMeters)
-                                .build();
+        for (BoundaryRequestDto boundaryDto : boundaries) {
+            BoundariesEntity boundary = BoundariesEntity.builder()
+                    .areaCalculation(savedAreaCalculation)
+                    .sideNumber(boundaryDto.getSideNumber())
+                    .referencePoint(boundaryDto.getReferencePoint())
+                    .orientation(boundaryDto.getOrientation())
+                    .build();
 
-                        measurementsRepository.save(measurementEntity);
-                    }
+            BoundariesEntity savedBoundary = boundariesRepository.save(boundary);
+
+            if (boundaryDto.getMeasurements() != null) {
+                for (MeasurementRequestDto mDto : boundaryDto.getMeasurements()) {
+                    double factor = UnitConversion.getFactor(mDto.getUnit());
+                    double convertedMeters = mDto.getValue() * factor;
+
+                    BoundancyMeasurementsEntity measurementEntity = BoundancyMeasurementsEntity.builder()
+                            .boundaries(savedBoundary)
+                            .unitType(mDto.getUnit())
+                            .originalValue(mDto.getValue())
+                            .conversionFactor(factor)
+                            .valueConvertedMeters(convertedMeters)
+                            .build();
+
+                    measurementsRepository.save(measurementEntity);
                 }
             }
         }
-
-        return areaCalculationMapper.toResponseDto(savedAreaCalculation);
     }
 
-    private double getConversionFactor(String unitType) {
-        if (unitType == null) return 1.0;
-        return switch (unitType.toLowerCase()) {
-            case "vara", "varas" -> VARA_CONVERSION_FACTOR;
-            default -> 1.0;
-        };
+    private String resolveLegalNotice(String customNotice) {
+        return (customNotice != null && !customNotice.isBlank()) ? customNotice : DEFAULT_LEGAL_NOTICE;
+    }
+
+    private double calculatePolygonArea(double[] sides) {
+        int n = sides.length;
+        double perimeter = 0;
+        for (double side : sides) {
+            perimeter += side;
+        }
+        double semiPerimeter = perimeter / 2.0;
+
+        if (n == 3) {
+            double a = sides[0], b = sides[1], c = sides[2];
+            if (a + b <= c || a + c <= b || b + c <= a) {
+                throw new IllegalArgumentException("Las longitudes de los lados no forman un triángulo válido.");
+            }
+            double val = semiPerimeter * (semiPerimeter - a) * (semiPerimeter - b) * (semiPerimeter - c);
+            return Math.round(Math.sqrt(val) * 100.0) / 100.0;
+        }
+
+        double maxSide = 0;
+        for (double side : sides) {
+            if (side > maxSide) maxSide = side;
+        }
+
+        double estimatedArea = (semiPerimeter - maxSide) * (semiPerimeter);
+        return Math.round(Math.max(estimatedArea, 0.0) * 100.0) / 100.0;
     }
 }

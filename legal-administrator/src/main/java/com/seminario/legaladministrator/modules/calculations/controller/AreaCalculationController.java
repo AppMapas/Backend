@@ -11,6 +11,7 @@ import com.seminario.legaladministrator.modules.users.ClientUserEntity;
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,5 +36,12 @@ public class AreaCalculationController {
 
         AreaCalculationResponseDto savedCalculation = calculationService.saveCalculation(request);
         return ResponseEntity.ok(savedCalculation);
+    }
+
+    @PostMapping("/polygon")
+    public ResponseEntity<AreaCalculationResponseDto> calculateAndSavePolygon(
+            @Valid @RequestBody AreaCalculationRequestDto request) {
+        AreaCalculationResponseDto response = calculationService.calculateAndSavePolygon(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
