@@ -21,10 +21,19 @@ public class PdfReportService {
     private final AreaCalculationMapper areaCalculationMapper;
 
     public byte[] generatePreliminaryReportPdf(Long calculationId) {
+        log.info("Iniciando generación de PDF para calculationId: {}", calculationId);
+
         AreaCalculationEntity calculation = calculationRepository.findById(calculationId)
                 .orElseThrow(() -> new RuntimeException("Cálculo no encontrado con ID: " + calculationId));
 
         AreaCalculationResponseDto dto = areaCalculationMapper.toResponseDto(calculation);
+
+        // LOG 1: Verificar si el DTO y la lista de colindancias vienen vacíos o nulos
+        if (dto.getBoundaries() == null) {
+            log.warn("¡ATENCIÓN! dto.getBoundaries() es NULL para el ID: {}", calculationId);
+        } else {
+            log.info("Cantidad de colindancias encontradas en el DTO: {}", dto.getBoundaries().size());
+        }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 36, 36, 36, 36);
@@ -58,7 +67,7 @@ public class PdfReportService {
             document.add(new Paragraph("Área Total Estimada: " + dto.getTotalAreaSquareMeters() + " m²", titleFont));
             document.add(Chunk.NEWLINE);
 
-            // Tabla de Desglose de Colindancias y Medidas (Cargada desde el DTO)
+            // Tabla de Desglose de Colindancias y Medidas
             document.add(new Paragraph("Desglose de Colindancias y Medidas:", subtitleFont));
             document.add(Chunk.NEWLINE);
 
@@ -73,6 +82,8 @@ public class PdfReportService {
 
             if (dto.getBoundaries() != null) {
                 for (AreaCalculationResponseDto.BoundaryDto boundaryDto : dto.getBoundaries()) {
+                    log.info("Procesando colindancia - Lado: {}, Orientación: {}", boundaryDto.getSideNumber(), boundaryDto.getOrientation());
+
                     double totalMeters = 0.0;
                     if (boundaryDto.getMeasurements() != null) {
                         for (AreaCalculationResponseDto.MeasurementDto m : boundaryDto.getMeasurements()) {
@@ -80,6 +91,8 @@ public class PdfReportService {
                                 totalMeters += m.getValueConvertedMeters();
                             }
                         }
+                    } else {
+                        log.warn("La colindancia {} no tiene mediciones asociadas (measurements es null).", boundaryDto.getSideNumber());
                     }
 
                     String orientationStr = boundaryDto.getOrientation() != null ? boundaryDto.getOrientation() : "N/A";
@@ -93,7 +106,7 @@ public class PdfReportService {
             document.add(table);
             document.add(Chunk.NEWLINE);
 
-            // Esquema Gráfico Ampliado con Acotaciones, Escala y Brújula
+            // Esquema Gráfico Ampliado
             document.add(new Paragraph("Esquema Geométrico de Referencia:", subtitleFont));
             document.add(Chunk.NEWLINE);
 
@@ -103,7 +116,6 @@ public class PdfReportService {
             float width = 230;
             float height = 120;
 
-            // Dibujar polígono principal del terreno (tamaño ampliado)
             canvas.setColorStroke(new Color(40, 40, 40));
             canvas.setLineWidth(1.5f);
             canvas.moveTo(startX, startY);
@@ -113,7 +125,6 @@ public class PdfReportService {
             canvas.closePath();
             canvas.stroke();
 
-            // Líneas de cota y medidas en los lados reubicadas proporcionalmente
             canvas.setColorStroke(new Color(100, 100, 100));
             canvas.setLineWidth(0.5f);
 
@@ -122,19 +133,17 @@ public class PdfReportService {
             ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("105.20m", smallFont), startX + width + 18, startY + (height/2) + 5, 65);
             ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("142.10m", smallFont), startX + (width/2) - 15, startY + height + 8, 0);
 
-            // Cuadro de Escala ampliado
             canvas.rectangle(startX, startY - 35, 75, 16);
             canvas.stroke();
             ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("Escala 1:200", smallFont), startX + 37.5f, startY - 28, 0);
 
-            // Brújula / Indicador Norte integrado
             float compassX = startX + width + 45;
             float compassY = startY + (height / 2);
             canvas.circle(compassX, compassY, 16);
             canvas.stroke();
             ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("N", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Font.BOLD)), compassX, compassY + 4, 0);
 
-            // Aviso Legal Obligatorio en el pie de página absoluto
+            // Aviso Legal en el pie de página absoluto
             PdfPTable footerTable = new PdfPTable(1);
             footerTable.setTotalWidth(523);
             footerTable.setLockedWidth(true);
@@ -148,7 +157,9 @@ public class PdfReportService {
             footerTable.writeSelectedRows(0, -1, 36, 50, writer.getDirectContent());
 
             document.close();
+            log.info("PDF generado exitosamente para calculationId: {}", calculationId);
         } catch (DocumentException e) {
+            log.error("Error al generar el PDF: {}", e.getMessage(), e);
             throw new RuntimeException("Error al generar el documento PDF preliminar", e);
         }
 

@@ -187,8 +187,15 @@ Uso del endpoint: `/api/v1/calculations/save?clientDpi={dpi_cliente}&userSystemI
 | `propertyType`         | String  | Tipo de propiedad                                      |
 
 
-### /api/v1/calculations/polygon
-Request
+### POST `/api/v1/calculations/polygon`
+Permite registrar un cálculo de polígono o terreno irregular utilizando múltiples unidades de medida por colindancia.
+
+**Autenticación requerida:** ✅ Bearer JWT
+**Roles permitidos:** Cualquier usuario autenticado
+
+**Request Body**
+
+```json
 {
   "clientDpi": "2541234560101",
   "userSystemId": "3001123450101",
@@ -246,9 +253,10 @@ Request
     }
   ]
 }
+```
 
-
-Response
+### Response `200 OK`
+```json
 {
     "id": 3,
     "clientUser": {
@@ -265,9 +273,16 @@ Response
     "updatedAt": null,
     "propertyType": "RURAL"
 }
+```
 
+### POST `/api/v1/calculations/split`
+Divide o particiona un terreno registrado previamente en sub-lotes a partir de líneas de corte y puntos geométricos definidos.
 
-### Particionar terreno
+**Autenticación requerida:** ✅ Bearer JWT
+**Roles permitidos:** Cualquier usuario autenticado
+
+## Request Body
+```json
 {
   "parentCalculationId": 1,
   "splitLines": [
@@ -291,9 +306,10 @@ Response
     }
   ]
 }
+```
 
-
-respuesta:
+## Response 200 OK
+```json
 [
     {
         "id": 4,
@@ -328,3 +344,11 @@ respuesta:
         "propertyType": "URBANA"
     }
 ]
+```
+
+### Generar Reporte GET `/api/v1/{id}/pdf`
+Genera el PDF con el plano
+**Autenticación requerida:** ✅ Bearer JWT
+**Roles permitidos:** Cualquier usuario autenticado
+
+## Responde un PDF
