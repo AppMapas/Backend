@@ -9,17 +9,20 @@ import com.seminario.legaladministrator.modules.calculations.mapper.AreaCalculat
 import com.seminario.legaladministrator.modules.calculations.mapper.BoundaryMapper;
 import com.seminario.legaladministrator.modules.calculations.repository.AreaCalculationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
-
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class PdfReportService {
     private final AreaCalculationRepository calculationRepository;
     private final AreaCalculationMapper areaCalculationMapper;
 
+    @Transactional(readOnly = true)
     public byte[] generatePreliminaryReportPdf(Long calculationId) {
         log.info("Iniciando generación de PDF para calculationId: {}", calculationId);
 
@@ -28,11 +31,11 @@ public class PdfReportService {
 
         AreaCalculationResponseDto dto = areaCalculationMapper.toResponseDto(calculation);
 
-        // LOG 1: Verificar si el DTO y la lista de colindancias vienen vacíos o nulos
-        if (dto.getBoundaries() == null) {
-            log.warn("¡ATENCIÓN! dto.getBoundaries() es NULL para el ID: {}", calculationId);
+        // Verificación de colindancias en la entidad JPA
+        if (calculation.getBoundaries() == null || calculation.getBoundaries().isEmpty()) {
+            log.warn("¡ATENCIÓN! calculation.getBoundaries() está vacío o es NULL para el ID: {}", calculationId);
         } else {
-            log.info("Cantidad de colindancias encontradas en el DTO: {}", dto.getBoundaries().size());
+            log.info("Cantidad de colindancias encontradas en la entidad: {}", calculation.getBoundaries().size());
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -59,12 +62,20 @@ public class PdfReportService {
             document.add(headerType);
             document.add(Chunk.NEWLINE);
 
-            // Metadatos
-            document.add(new Paragraph("Nombre Finca: " + dto.getTerrainName(), bodyFont));
-            document.add(new Paragraph("Tipo de Propiedad: " + dto.getPropertyType(), bodyFont));
-            document.add(new Paragraph("Propietario (Cliente DPI): " + (dto.getClientUser() != null ? dto.getClientUser().getDpi() : "N/A"), bodyFont));
-            document.add(new Paragraph("Fecha de Emisión: " + dto.getCreatedAt(), bodyFont));
-            document.add(new Paragraph("Área Total Estimada: " + dto.getTotalAreaSquareMeters() + " m²", titleFont));
+            // Metadatos con manejo seguro de área total
+            String terrainName = dto.getTerrainName() != null ? dto.getTerrainName() : "N/A";
+            String propertyType = dto.getPropertyType() != null ? dto.getPropertyType() : "N/A";
+            String clientDpi = (dto.getClientUser() != null && dto.getClientUser().getDpi() != null) ? dto.getClientUser().getDpi() : "N/A";
+            String createdAt = dto.getCreatedAt() != null ? dto.getCreatedAt().toString() : "N/A";
+
+            Double totalArea = dto.getTotalAreaSquareMeters();
+            String areaStr = (totalArea != null && totalArea > 0) ? String.format("%.2f", totalArea) : "0.00";
+
+            document.add(new Paragraph("Nombre Finca: " + terrainName, bodyFont));
+            document.add(new Paragraph("Tipo de Propiedad: " + propertyType, bodyFont));
+            document.add(new Paragraph("Propietario (Cliente DPI): " + clientDpi, bodyFont));
+            document.add(new Paragraph("Fecha de Emisión: " + createdAt, bodyFont));
+            document.add(new Paragraph("Área Total Estimada: " + areaStr + " m²", titleFont));
             document.add(Chunk.NEWLINE);
 
             // Tabla de Desglose de Colindancias y Medidas
@@ -80,29 +91,38 @@ public class PdfReportService {
             table.addCell(new PdfPCell(new Phrase("Medida (Metros)", headerTableFont)));
             table.addCell(new PdfPCell(new Phrase("Punto de Referencia", headerTableFont)));
 
-            if (dto.getBoundaries() != null) {
-                for (AreaCalculationResponseDto.BoundaryDto boundaryDto : dto.getBoundaries()) {
-                    log.info("Procesando colindancia - Lado: {}, Orientación: {}", boundaryDto.getSideNumber(), boundaryDto.getOrientation());
+            // Recorrido de colindancias de la entidad
+            if (calculation.getBoundaries() != null && !calculation.getBoundaries().isEmpty()) {
+                for (var boundary : calculation.getBoundaries()) {
+                    log.info("Procesando colindancia - Lado: {}, Orientación: {}", boundary.getSideNumber(), boundary.getOrientation());
 
                     double totalMeters = 0.0;
-                    if (boundaryDto.getMeasurements() != null) {
-                        for (AreaCalculationResponseDto.MeasurementDto m : boundaryDto.getMeasurements()) {
+                    if (boundary.getMeasurements() != null) {
+                        for (var m : boundary.getMeasurements()) {
                             if (m.getValueConvertedMeters() != null) {
                                 totalMeters += m.getValueConvertedMeters();
                             }
                         }
                     } else {
-                        log.warn("La colindancia {} no tiene mediciones asociadas (measurements es null).", boundaryDto.getSideNumber());
+                        log.warn("La colindancia {} no tiene mediciones asociadas.", boundary.getSideNumber());
                     }
 
-                    String orientationStr = boundaryDto.getOrientation() != null ? boundaryDto.getOrientation() : "N/A";
+                    String orientationStr = boundary.getOrientation() != null ? boundary.getOrientation().toString() : "N/A";
+                    String sideNumStr = boundary.getSideNumber() != null ? String.valueOf(boundary.getSideNumber()) : "-";
+                    String refPointStr = boundary.getReferencePoint() != null ? boundary.getReferencePoint() : "N/A";
 
-                    table.addCell(new PdfPCell(new Phrase(String.valueOf(boundaryDto.getSideNumber()), bodyFont)));
+                    table.addCell(new PdfPCell(new Phrase(sideNumStr, bodyFont)));
                     table.addCell(new PdfPCell(new Phrase(orientationStr, bodyFont)));
                     table.addCell(new PdfPCell(new Phrase(String.format("%.2f m", totalMeters), bodyFont)));
-                    table.addCell(new PdfPCell(new Phrase(boundaryDto.getReferencePoint() != null ? boundaryDto.getReferencePoint() : "N/A", bodyFont)));
+                    table.addCell(new PdfPCell(new Phrase(refPointStr, bodyFont)));
                 }
+            } else {
+                PdfPCell emptyCell = new PdfPCell(new Phrase("No hay colindancias registradas", bodyFont));
+                emptyCell.setColspan(4);
+                emptyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(emptyCell);
             }
+
             document.add(table);
             document.add(Chunk.NEWLINE);
 

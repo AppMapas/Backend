@@ -169,10 +169,6 @@ public class CalculationService {
 
         List<AreaCalculationResponseDto> subPolygonsResult = new java.util.ArrayList<>();
 
-        // 2. Procesar las líneas de corte para descomponer las áreas
-        // (A nivel lógico backend puro, se calculan las sub-áreas restando la proporción geométrica o
-        // procesando los vértices resultantes de la intersección de las líneas de corte)
-
         for (SplitLineDto cut : request.getSplitLines()) {
             // Cálculo geométrico de la fracción recortada
             double cutArea = calculateGeometricCutArea(cut.getPoints());
@@ -186,10 +182,17 @@ public class CalculationService {
                     .propertyType(parentPolygon.getPropertyType())
                     .totalAreaSquareMeters(cutArea)
                     .legalNotice("Sub-área fraccionada de referencia técnica. Sujeta a validación notarial.")
-                    .createdAt(java.time.LocalDate.now())
+                    .createdAt(LocalDate.now())
                     .build();
 
             AreaCalculationEntity savedSubLot = areaCalculationRepository.save(subLot);
+
+            // ---> CORRECCIÓN CLAVE: Si el request de la división te envía las colindancias del nuevo sub-lote,
+            // debes procesarlas aquí para que no se queden vacías:
+            if (cut.getBoundaries() != null && !cut.getBoundaries().isEmpty()) {
+                processBoundaries(savedSubLot, cut.getBoundaries());
+            }
+
             subPolygonsResult.add(areaCalculationMapper.toResponseDto(savedSubLot));
         }
 
