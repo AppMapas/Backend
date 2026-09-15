@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.*;
 import java.io.ByteArrayOutputStream;
-@Slf4j
+
 @RequiredArgsConstructor
 @Service
 public class PdfReportService {
@@ -24,19 +24,11 @@ public class PdfReportService {
 
     @Transactional(readOnly = true)
     public byte[] generatePreliminaryReportPdf(Long calculationId) {
-        log.info("Iniciando generación de PDF para calculationId: {}", calculationId);
 
         AreaCalculationEntity calculation = calculationRepository.findById(calculationId)
                 .orElseThrow(() -> new RuntimeException("Cálculo no encontrado con ID: " + calculationId));
 
         AreaCalculationResponseDto dto = areaCalculationMapper.toResponseDto(calculation);
-
-        // Verificación de colindancias en la entidad JPA
-        if (calculation.getBoundaries() == null || calculation.getBoundaries().isEmpty()) {
-            log.warn("¡ATENCIÓN! calculation.getBoundaries() está vacío o es NULL para el ID: {}", calculationId);
-        } else {
-            log.info("Cantidad de colindancias encontradas en la entidad: {}", calculation.getBoundaries().size());
-        }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 36, 36, 36, 36);
@@ -100,7 +92,6 @@ public class PdfReportService {
             // Recorrido de colindancias de la entidad
             if (calculation.getBoundaries() != null && !calculation.getBoundaries().isEmpty()) {
                 for (var boundary : calculation.getBoundaries()) {
-                    log.info("Procesando colindancia - Lado: {}, Orientación: {}", boundary.getSideNumber(), boundary.getOrientation());
 
                     double totalMeters = 0.0;
                     if (boundary.getMeasurements() != null) {
@@ -109,8 +100,6 @@ public class PdfReportService {
                                 totalMeters += m.getValueConvertedMeters();
                             }
                         }
-                    } else {
-                        log.warn("La colindancia {} no tiene mediciones asociadas.", boundary.getSideNumber());
                     }
 
                     String orientationStr = boundary.getOrientation() != null ? boundary.getOrientation().toString() : "N/A";
@@ -265,9 +254,7 @@ public class PdfReportService {
             footerTable.writeSelectedRows(0, -1, 36, 45, writer.getDirectContent());
 
             document.close();
-            log.info("PDF generado exitosamente para calculationId: {}", calculationId);
         } catch (DocumentException e) {
-            log.error("Error al generar el PDF: {}", e.getMessage(), e);
             throw new RuntimeException("Error al generar el documento PDF preliminar", e);
         }
 
