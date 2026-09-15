@@ -1,14 +1,12 @@
 package com.seminario.legaladministrator.modules.calculations.service;
 
-import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
-import com.seminario.legaladministrator.modules.calculations.BoundancyMeasurementsEntity;
-import com.seminario.legaladministrator.modules.calculations.BoundariesEntity;
-import com.seminario.legaladministrator.modules.calculations.UnitConversion;
+import com.seminario.legaladministrator.modules.calculations.*;
 import com.seminario.legaladministrator.modules.calculations.dto.*;
 import com.seminario.legaladministrator.modules.calculations.mapper.AreaCalculationMapper;
 import com.seminario.legaladministrator.modules.calculations.repository.AreaCalculationRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundancyMeasurementsRepository;
 import com.seminario.legaladministrator.modules.calculations.repository.BoundariesRepository;
+import com.seminario.legaladministrator.modules.calculations.repository.SubPolygonsRepository;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import com.seminario.legaladministrator.modules.users.repository.ClientUserRepository;
@@ -34,6 +32,7 @@ public class CalculationService {
     private final ClientUserRepository clientUserRepository;
     private final UserSystemRepository userSystemRepository;
     private final AreaCalculationMapper areaCalculationMapper;
+    private final SubPolygonsRepository subPolygonsRepository;
 
     @Transactional
     public AreaCalculationResponseDto saveCalculation(AreaCalculationRequestDto request) {
@@ -163,18 +162,27 @@ public class CalculationService {
 
     @Transactional
     public List<AreaCalculationResponseDto> splitPolygon(PolygonSplitRequestDto request) {
-        // 1. Recuperar el polígono principal guardado previamente
+        // 1. Recuperar el polígono principal
         AreaCalculationEntity parentPolygon = areaCalculationRepository.findById(request.getParentCalculationId())
                 .orElseThrow(() -> new RuntimeException("Polígono principal no encontrado con ID: " + request.getParentCalculationId()));
 
         List<AreaCalculationResponseDto> subPolygonsResult = new java.util.ArrayList<>();
 
-        for (SplitLineDto cut : request.getSplitLines()) {
-            // Cálculo geométrico de la fracción recortada
-            double cutArea = calculateGeometricCutArea(cut.getPoints());
+        // Validar si existen líneas de corte (permite lotes sin partición o con múltiples cortes / esquinas)
+        if (request.getSplitLines() == null || request.getSplitLines().isEmpty()) {
+            throw new IllegalArgumentException("Debe especificar al menos una línea de división o sub-lote.");
+        }
 
-            // Crear una nueva entidad de sub-lote asociada al mismo cliente
-            AreaCalculationEntity subLot = AreaCalculationEntity.builder()
+        // 2. Procesar cada corte (Soporta 1, 2 o más particiones para esquinas y servidumbres)
+        for (SplitLineDto cut : request.getSplitLines()) {
+
+            // Si el corte trae colindancias explícitas, calculamos el área o usamos el área geométrica
+            double cutArea = (cut.getBoundaries() != null && !cut.getBoundaries().isEmpty())
+                    ? calculateSideAreaFromBoundaries(cut.getBoundaries())
+                    : calculateGeometricCutArea(cut.getPoints());
+
+            // Crear la entidad de AreaCalculation para el sub-lote (permite generar su PDF individual)
+            AreaCalculationEntity subLotCalculation = AreaCalculationEntity.builder()
                     .clientUser(parentPolygon.getClientUser())
                     .userSystem(parentPolygon.getUserSystem())
                     .terrainName(parentPolygon.getTerrainName() + " - " + cut.getCutName())
@@ -185,18 +193,35 @@ public class CalculationService {
                     .createdAt(LocalDate.now())
                     .build();
 
-            AreaCalculationEntity savedSubLot = areaCalculationRepository.save(subLot);
+            AreaCalculationEntity savedSubLot = areaCalculationRepository.save(subLotCalculation);
 
-            // ---> CORRECCIÓN CLAVE: Si el request de la división te envía las colindancias del nuevo sub-lote,
-            // debes procesarlas aquí para que no se queden vacías:
+            // 3. Guardar las colindancias y medidas del sub-lote (para que la tabla del PDF NO salga vacía)
             if (cut.getBoundaries() != null && !cut.getBoundaries().isEmpty()) {
                 processBoundaries(savedSubLot, cut.getBoundaries());
             }
+
+            // 4. Registrar en la tabla histórica de sub-polígonos (sub_polygons)
+            SubPolygonsEntity subPolygonRecord = SubPolygonsEntity.builder()
+                    .areaCalculation(savedSubLot)
+                    .subLotName(cut.getCutName())
+                    .divisionType(cut.getDivisionType() != null ? cut.getDivisionType() : "DIVISION_ESTANDAR")
+                    .calcualtedAreaMeters(cutArea)
+                    .areaCalculatedVaras(cutArea * 1.4311) // Factor opcional de conversión a varas cuadradas si aplica en tu región
+                    .createdAt(LocalDate.now())
+                    .build();
+
+            subPolygonsRepository.save(subPolygonRecord);
 
             subPolygonsResult.add(areaCalculationMapper.toResponseDto(savedSubLot));
         }
 
         return subPolygonsResult;
+    }
+
+    // Método auxiliar opcional para calcular el área si se proveen colindancias directas en el corte
+    private double calculateSideAreaFromBoundaries(List<BoundaryRequestDto> boundaries) {
+        double[] sideLengths = calculateSideLengths(boundaries);
+        return calculatePolygonArea(sideLengths);
     }
 
     private double calculateGeometricCutArea(List<CoordinateDto> points) {

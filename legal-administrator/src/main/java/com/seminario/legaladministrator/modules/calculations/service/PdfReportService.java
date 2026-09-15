@@ -76,6 +76,12 @@ public class PdfReportService {
             document.add(new Paragraph("Propietario (Cliente DPI): " + clientDpi, bodyFont));
             document.add(new Paragraph("Fecha de Emisión: " + createdAt, bodyFont));
             document.add(new Paragraph("Área Total Estimada: " + areaStr + " m²", titleFont));
+
+            // ---> NUEVA LÍNEA DE ACLARACIÓN DE MARGEN DE ERROR <---
+            Paragraph marginNote = new Paragraph("Nota: Área calculada con base en descripciones de escrituras (Sujeto a variación por levantamiento topográfico)", subtitleFont);
+            marginNote.setSpacingAfter(5);
+            document.add(marginNote);
+
             document.add(Chunk.NEWLINE);
 
             // Tabla de Desglose de Colindancias y Medidas
@@ -126,55 +132,137 @@ public class PdfReportService {
             document.add(table);
             document.add(Chunk.NEWLINE);
 
-            // Esquema Gráfico Ampliado
+            // Esquema Geométrico de Referencia Poligonal Dinámico
             document.add(new Paragraph("Esquema Geométrico de Referencia:", subtitleFont));
             document.add(Chunk.NEWLINE);
 
-            PdfContentByte canvas = writer.getDirectContent();
-            float startX = 160;
-            float startY = 410;
-            float width = 230;
-            float height = 120;
+            // Capturar la posición Y exacta donde terminó la tabla para evitar traslapes
+            float currentY = writer.getVerticalPosition(true);
 
-            canvas.setColorStroke(new Color(40, 40, 40));
-            canvas.setLineWidth(1.5f);
-            canvas.moveTo(startX, startY);
-            canvas.lineTo(startX + width, startY);
-            canvas.lineTo(startX + width - 30, startY + height);
-            canvas.lineTo(startX, startY + height - 20);
+            PdfContentByte canvas = writer.getDirectContent();
+            float boxWidth = 240f;
+            float boxHeight = 140f;
+            float startX = (PageSize.A4.getWidth() - boxWidth) / 2; // Centrado horizontal en la hoja A4
+            float startY = currentY - boxHeight - 15;                // Posicionado justo debajo de la tabla
+
+            // Validación de seguridad si el espacio en la página es reducido
+            if (startY < 60) {
+                document.newPage();
+                startY = PageSize.A4.getHeight() - 160;
+            }
+
+            // Coordenadas base normalizadas para replicar la figura geométrica A-J
+            float cx = startX + 25f;
+            float cy = startY + 15f;
+
+            float[] polyX = { cx + 15, cx + 55, cx + 85, cx + 130, cx + 175, cx + 135, cx + 90, cx + 105, cx + 70, cx + 40 };
+            float[] polyY = { cy + 45, cy + 105, cy + 65, cy + 120, cy + 75, cy + 10, cy + 35, cy + 55, cy + 75, cy + 35 };
+
+            // Dibujar el contorno poligonal irregular
+            canvas.setColorStroke(new Color(235, 87, 87));
+            canvas.setLineWidth(1.6f);
+
+            canvas.moveTo(polyX[0], polyY[0]);
+            for (int i = 1; i < polyX.length; i++) {
+                canvas.lineTo(polyX[i], polyY[i]);
+            }
             canvas.closePath();
             canvas.stroke();
 
-            canvas.setColorStroke(new Color(100, 100, 100));
-            canvas.setLineWidth(0.5f);
+            // Dibujar los nodos en cada vértice y sus etiquetas (A hasta J)
+            String[] labels = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"};
+            canvas.setColorFill(new Color(0, 0, 0));
+            for (int i = 0; i < polyX.length; i++) {
+                canvas.circle(polyX[i], polyY[i], 2.5f);
+                canvas.fill();
 
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("150.00m", smallFont), startX + (width/2), startY - 12, 0);
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("95.50m", smallFont), startX - 18, startY + (height/2), 90);
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("105.20m", smallFont), startX + width + 18, startY + (height/2) + 5, 65);
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("142.10m", smallFont), startX + (width/2) - 15, startY + height + 8, 0);
+                ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER,
+                        new Phrase(labels[i], FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.DARK_GRAY)),
+                        polyX[i] + 7, polyY[i] + 5, 0);
+            }
 
-            canvas.rectangle(startX, startY - 35, 75, 16);
+            // ROSA DE LOS VIENTOS PROFESIONAL
+            float compassX = startX + boxWidth - 20;
+            float compassY = startY + boxHeight - 20;
+            float r = 15f; // Radio de la rosa
+
+            canvas.setColorStroke(new Color(60, 60, 60));
+            canvas.setLineWidth(0.8f);
+
+            // Círculo exterior de fondo
+            canvas.circle(compassX, compassY, r);
             canvas.stroke();
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("Escala 1:200", smallFont), startX + 37.5f, startY - 28, 0);
 
-            float compassX = startX + width + 45;
-            float compassY = startY + (height / 2);
-            canvas.circle(compassX, compassY, 16);
-            canvas.stroke();
-            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER, new Phrase("N", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Font.BOLD)), compassX, compassY + 4, 0);
+            // Punta Norte (Relleno oscuro simulando triángulo superior)
+            canvas.setColorFill(new Color(40, 40, 40));
+            canvas.moveTo(compassX, compassY + r + 4);
+            canvas.lineTo(compassX - 3.5f, compassY);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            // Punta Norte (Mitad derecha clara)
+            canvas.setColorFill(new Color(200, 200, 200));
+            canvas.moveTo(compassX, compassY + r + 4);
+            canvas.lineTo(compassX + 3.5f, compassY);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            // Punta Sur
+            canvas.setColorFill(new Color(120, 120, 120));
+            canvas.moveTo(compassX, compassY - r - 4);
+            canvas.lineTo(compassX - 3.5f, compassY);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            canvas.setColorFill(new Color(220, 220, 220));
+            canvas.moveTo(compassX, compassY - r - 4);
+            canvas.lineTo(compassX + 3.5f, compassY);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            // Punta Este
+            canvas.setColorFill(new Color(120, 120, 120));
+            canvas.moveTo(compassX + r + 4, compassY);
+            canvas.lineTo(compassX, compassY + 3.5f);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            canvas.setColorFill(new Color(200, 200, 200));
+            canvas.moveTo(compassX + r + 4, compassY);
+            canvas.lineTo(compassX, compassY - 3.5f);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            // Punta Oeste
+            canvas.setColorFill(new Color(120, 120, 120));
+            canvas.moveTo(compassX - r - 4, compassY);
+            canvas.lineTo(compassX, compassY - 3.5f);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            canvas.setColorFill(new Color(200, 200, 200));
+            canvas.moveTo(compassX - r - 4, compassY);
+            canvas.lineTo(compassX, compassY + 3.5f);
+            canvas.lineTo(compassX, compassY);
+            canvas.fillStroke();
+
+            // Letra N destacada de la Rosa de los Vientos
+            ColumnText.showTextAligned(canvas, Element.ALIGN_CENTER,
+                    new Phrase("N", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Color.BLACK)),
+                    compassX, compassY + r + 8, 0);
 
             // Aviso Legal en el pie de página absoluto
             PdfPTable footerTable = new PdfPTable(1);
             footerTable.setTotalWidth(523);
             footerTable.setLockedWidth(true);
 
-            PdfPCell legalCell = new PdfPCell(new Phrase("AVISO LEGAL OBLIGATORIO:\nSub-área fraccionada de referencia técnica. Sujeta a validación notarial.", warningFont));
+            PdfPCell legalCell = new PdfPCell(new Phrase("AVISO LEGAL:\nSub-área fraccionada de referencia técnica. Sujeta a validación notarial.", warningFont));
             legalCell.setBorder(com.lowagie.text.Rectangle.TOP);
             legalCell.setBorderColor(new Color(150, 150, 150));
             legalCell.setPaddingTop(6);
             footerTable.addCell(legalCell);
 
-            footerTable.writeSelectedRows(0, -1, 36, 50, writer.getDirectContent());
+            footerTable.writeSelectedRows(0, -1, 36, 45, writer.getDirectContent());
 
             document.close();
             log.info("PDF generado exitosamente para calculationId: {}", calculationId);
