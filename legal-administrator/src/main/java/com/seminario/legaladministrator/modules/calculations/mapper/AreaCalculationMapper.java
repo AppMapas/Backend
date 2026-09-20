@@ -34,6 +34,7 @@ public class AreaCalculationMapper {
         response.setCreatedAt(entity.getCreatedAt());
         response.setUpdatedAt(entity.getUpdatedAt());
         response.setPropertyType(entity.getPropertyType());
+        response.setLocation(entity.getLocation());
 
         if (entity.getBoundaries() != null) {
             response.setBoundaries(entity.getBoundaries().stream().map(boundary -> {

@@ -51,4 +51,11 @@ public class AreaCalculationEntity {
 
     @OneToMany(mappedBy = "areaCalculation", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<BoundariesEntity> boundaries;
+
+    @Column(name = "location", length = 255)
+    private String location;
+
+    @Lob
+    @Column(name = "plan_image", columnDefinition = "BYTEA")
+    private byte[] planImage;
 }

@@ -130,8 +130,8 @@ public class AuthService {
     }
 
     public LoginResponseDto refreshToken(String refreshToken) {
-        if (!jwtProvider.validateToken(refreshToken)) {
-            throw new RuntimeException("Refresh token inválido o expirado");
+        if (refreshToken == null || !jwtProvider.validateRefreshToken(refreshToken)) {
+            throw new RuntimeException("Refresh Token inválido o expirado");
         }
 
         String email = jwtProvider.getEmailFromToken(refreshToken);
@@ -139,7 +139,15 @@ public class AuthService {
         UserSystemEntity user = userSystemRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
-        return getLoginResponseDto(user);
+        String role = user.getRole().getName();
+
+        // Generar el nuevo Access Token con su rol correspondiente
+        String newAccessToken = jwtProvider.generateAccessToken(email, role);
+
+        return LoginResponseDto.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(refreshToken)
+                .build();
     }
 
     private LoginResponseDto getLoginResponseDto(UserSystemEntity user) {

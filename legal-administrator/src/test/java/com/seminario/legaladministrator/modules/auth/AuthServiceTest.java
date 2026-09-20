@@ -33,7 +33,8 @@ import static org.mockito.Mockito.when;
 class AuthServiceTest {
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-    private final JwtProvider jwtProvider = new JwtProvider();
+    // Instanciamos el JwtProvider pasando la clave de prueba
+    private final JwtProvider jwtProvider = new JwtProvider("404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970");
 
     @Mock
     private UserSystemRepository userSystemRepository;
@@ -53,7 +54,8 @@ class AuthServiceTest {
         LoginResponseDto response = service.login(new LoginRequestDto("ana@test.com", "secret123"));
 
         assertThat(response.getEmail()).isEqualTo("ana@test.com");
-        assertThat(response.getRole()).isEqualTo("ADMIN");
+        // Ajustado a "Administrador" para que coincida con el rol configurado en buildUser()
+        assertThat(response.getRole()).isEqualTo("Administrador");
         assertThat(response.isTwoFactorRequired()).isFalse();
         assertThat(response.getAccessToken()).isNotBlank();
         assertThat(response.getRefreshToken()).isNotBlank();
@@ -147,7 +149,7 @@ class AuthServiceTest {
     private UserSystemEntity buildUser() {
         RoleEntity role = RoleEntity.builder()
                 .id(1L)
-                .name("ADMIN")
+                .name("Administrador") // Actualizado para coincidir con la base de datos real
                 .description("Administrador")
                 .build();
 

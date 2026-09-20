@@ -48,7 +48,7 @@ public class CalculationService {
         double[] sideLengthsInMeters = calculateSideLengths(request.getBoundaries());
         double totalArea = calculatePolygonArea(sideLengthsInMeters);
 
-        String legalNoticeText = resolveLegalNotice(request.getLegalNotice());
+        String legalNoticeText = resolveLegalNotice(DEFAULT_LEGAL_NOTICE);
 
         AreaCalculationEntity savedAreaCalculation = createAndSaveBaseCalculation(request, totalArea, legalNoticeText);
         processBoundaries(savedAreaCalculation, request.getBoundaries());
@@ -63,6 +63,21 @@ public class CalculationService {
         UserSystemEntity userSystem = userSystemRepository.findById(request.getUserSystemId())
                 .orElseThrow(() -> new RuntimeException("Usuario del sistema no encontrado con DPI: " + request.getUserSystemId()));
 
+        // Convertir Base64 a byte[] si viene informado en el request
+        byte[] decodedPlanImage = null;
+        if (request.getPlanImageBase64() != null && !request.getPlanImageBase64().isBlank()) {
+            try {
+                // Limpiar cabecera Data URI si el frontend la envía (ej: "data:image/png;base64,iVBORw0KGgo...")
+                String base64Image = request.getPlanImageBase64();
+                if (base64Image.contains(",")) {
+                    base64Image = base64Image.split(",")[1];
+                }
+                decodedPlanImage = java.util.Base64.getDecoder().decode(base64Image);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("El formato de la imagen del plano en Base64 es inválido.");
+            }
+        }
+
         AreaCalculationEntity entity = AreaCalculationEntity.builder()
                 .clientUser(client)
                 .userSystem(userSystem)
@@ -71,6 +86,8 @@ public class CalculationService {
                 .propertyType(request.getPropertyType())
                 .totalAreaSquareMeters(totalArea)
                 .legalNotice(legalNotice)
+                .location(request.getLocation())
+                .planImage(decodedPlanImage)
                 .createdAt(LocalDate.now())
                 .build();
 

@@ -34,16 +34,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    /*@PostMapping("/2fa/setup")
-    public ResponseEntity<TwoFactorSetupResponseDto> setup2fa(
-            Authentication authentication,
-            @RequestParam(required = false) String email,
-            @RequestBody(required = false) Map<String, String> body) {
-        String targetEmail = resolveEmail(authentication, email, body);
-        TwoFactorSetupResponseDto response = authService.setup2fa(targetEmail);
-        return ResponseEntity.ok(response);
-    }*/
-
     @PostMapping("/2fa/setup")
     public ResponseEntity<TwoFactorSetupResponseDto> setup2fa(@RequestBody Map<String, String> requestBody) {
         String email = requestBody.get("email");

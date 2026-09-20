@@ -21,6 +21,7 @@ public class AreaCalculationResponseDto {
     private LocalDate createdAt;
     private LocalDate updatedAt;
     private String propertyType;
+    private String location;
     private List<BoundaryDto> boundaries;
 
     @Data

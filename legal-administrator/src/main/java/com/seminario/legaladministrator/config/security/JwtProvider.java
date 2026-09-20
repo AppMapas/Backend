@@ -2,16 +2,22 @@ package com.seminario.legaladministrator.config.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
 public class JwtProvider {
-    private final SecretKey jwtSecret = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    private final SecretKey jwtSecret;
     private final long accessTokenValidity = 900000; // 15 minutos
     private final long refreshTokenValidity = 604800000; // 7 días
+
+    public JwtProvider(@Value("${jwt.secret}") String secretString) {
+        this.jwtSecret = Keys.hmacShaKeyFor(secretString.getBytes(StandardCharsets.UTF_8));
+    }
 
     public String generateAccessToken(String email, String role) {
         Date now = new Date();
@@ -64,6 +70,10 @@ public class JwtProvider {
                 .getBody();
 
         return claims.get("role", String.class);
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateToken(token);
     }
 }
 

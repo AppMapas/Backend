@@ -26,7 +26,10 @@ public class AreaCalculationRequestDto {
     @NotBlank(message = "El tipo de propiedad es obligatorio")
     private String propertyType;
 
-    private String legalNotice;
+    @NotBlank(message = "La ubicación es obligatoria.")
+    private String location;
+
+    private String planImageBase64;
 
     @NotNull(message = "Debe incluir al menos 3 colindancias")
     private List<BoundaryRequestDto> boundaries;
