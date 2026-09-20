@@ -14,13 +14,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TotpService {
+    private static final String ISSUER = "GestorJuridico";
     private final SecretGenerator secretGenerator = new DefaultSecretGenerator();
     private final QrGenerator qrGenerator = new ZxingPngQrGenerator();
     private final TimeProvider timeProvider = new SystemTimeProvider();
     private final CodeGenerator codeGenerator = new DefaultCodeGenerator(HashingAlgorithm.SHA1);
     private final CodeVerifier codeVerifier = new DefaultCodeVerifier(codeGenerator, timeProvider);
-
-    private static final String ISSUER = "GestorJuridico";
 
     public String generateSecret() {
         return secretGenerator.generate();

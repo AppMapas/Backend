@@ -1,12 +1,9 @@
 package com.seminario.legaladministrator.modules.calculations.controller;
 
-import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
 import com.seminario.legaladministrator.modules.calculations.dto.*;
 import com.seminario.legaladministrator.modules.calculations.service.CalculationService;
 import com.seminario.legaladministrator.modules.calculations.service.ConversionService;
 import com.seminario.legaladministrator.modules.calculations.service.PdfReportService;
-import com.seminario.legaladministrator.modules.users.ClientUserEntity;
-import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

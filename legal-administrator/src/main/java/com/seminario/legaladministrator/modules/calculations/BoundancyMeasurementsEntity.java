@@ -3,8 +3,6 @@ package com.seminario.legaladministrator.modules.calculations;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.List;
-
 @Getter
 @Setter
 @AllArgsConstructor

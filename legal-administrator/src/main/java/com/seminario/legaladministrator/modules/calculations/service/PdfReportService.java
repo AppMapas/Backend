@@ -6,10 +6,9 @@ import com.lowagie.text.pdf.*;
 import com.seminario.legaladministrator.modules.calculations.AreaCalculationEntity;
 import com.seminario.legaladministrator.modules.calculations.dto.AreaCalculationResponseDto;
 import com.seminario.legaladministrator.modules.calculations.mapper.AreaCalculationMapper;
-import com.seminario.legaladministrator.modules.calculations.mapper.BoundaryMapper;
 import com.seminario.legaladministrator.modules.calculations.repository.AreaCalculationRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +41,7 @@ public class PdfReportService {
             Font bodyFont = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL);
             Font headerTableFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.BOLD);
             Font warningFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Font.BOLD);
-            Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL);
+            //Font smallFont = FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL);
 
             // Encabezado
             Paragraph headerApp = new Paragraph("LEGAL-ADMINISTRATOR", titleFont);
@@ -102,7 +101,7 @@ public class PdfReportService {
                         }
                     }
 
-                    String orientationStr = boundary.getOrientation() != null ? boundary.getOrientation().toString() : "N/A";
+                    String orientationStr = boundary.getOrientation() != null ? boundary.getOrientation() : "N/A";
                     String sideNumStr = boundary.getSideNumber() != null ? String.valueOf(boundary.getSideNumber()) : "-";
                     String refPointStr = boundary.getReferencePoint() != null ? boundary.getReferencePoint() : "N/A";
 
@@ -144,8 +143,8 @@ public class PdfReportService {
             float cx = startX + 25f;
             float cy = startY + 15f;
 
-            float[] polyX = { cx + 15, cx + 55, cx + 85, cx + 130, cx + 175, cx + 135, cx + 90, cx + 105, cx + 70, cx + 40 };
-            float[] polyY = { cy + 45, cy + 105, cy + 65, cy + 120, cy + 75, cy + 10, cy + 35, cy + 55, cy + 75, cy + 35 };
+            float[] polyX = {cx + 15, cx + 55, cx + 85, cx + 130, cx + 175, cx + 135, cx + 90, cx + 105, cx + 70, cx + 40};
+            float[] polyY = {cy + 45, cy + 105, cy + 65, cy + 120, cy + 75, cy + 10, cy + 35, cy + 55, cy + 75, cy + 35};
 
             // Dibujar el contorno poligonal irregular
             canvas.setColorStroke(new Color(235, 87, 87));
@@ -241,15 +240,7 @@ public class PdfReportService {
                     compassX, compassY + r + 8, 0);
 
             // Aviso Legal en el pie de página absoluto
-            PdfPTable footerTable = new PdfPTable(1);
-            footerTable.setTotalWidth(523);
-            footerTable.setLockedWidth(true);
-
-            PdfPCell legalCell = new PdfPCell(new Phrase("AVISO LEGAL:\nSub-área fraccionada de referencia técnica. Sujeta a validación notarial.", warningFont));
-            legalCell.setBorder(com.lowagie.text.Rectangle.TOP);
-            legalCell.setBorderColor(new Color(150, 150, 150));
-            legalCell.setPaddingTop(6);
-            footerTable.addCell(legalCell);
+            PdfPTable footerTable = createFooterTable(warningFont);
 
             footerTable.writeSelectedRows(0, -1, 36, 45, writer.getDirectContent());
 
@@ -259,5 +250,18 @@ public class PdfReportService {
         }
 
         return out.toByteArray();
+    }
+
+    private static @NonNull PdfPTable createFooterTable(Font warningFont) {
+        PdfPTable footerTable = new PdfPTable(1);
+        footerTable.setTotalWidth(523);
+        footerTable.setLockedWidth(true);
+
+        PdfPCell legalCell = new PdfPCell(new Phrase("AVISO LEGAL:\nSub-área fraccionada de referencia técnica. Sujeta a validación notarial.", warningFont));
+        legalCell.setBorder(com.lowagie.text.Rectangle.TOP);
+        legalCell.setBorderColor(new Color(150, 150, 150));
+        legalCell.setPaddingTop(6);
+        footerTable.addCell(legalCell);
+        return footerTable;
     }
 }
