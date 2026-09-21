@@ -30,7 +30,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Permitir peticiones OPTIONS
+                        // 1. Permitir peticiones OPTIONS (Vital para ngrok y CORS)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // 2. Permitir cualquier subruta de auth (login, refresh)
@@ -51,9 +51,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // Permite cualquier origen (incluyendo las URLs dinámicas de ngrok)
         configuration.setAllowedOrigins(List.of("*"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+
+        // Se añaden cabeceras comunes y la específica de ngrok para evitar bloqueos
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "ngrok-skip-browser-warning"
+        ));
+
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
