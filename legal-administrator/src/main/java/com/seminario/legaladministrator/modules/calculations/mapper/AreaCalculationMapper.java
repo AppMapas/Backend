@@ -42,6 +42,16 @@ public class AreaCalculationMapper {
                 bDto.setSideNumber(boundary.getSideNumber());
                 bDto.setOrientation(boundary.getOrientation());
                 bDto.setReferencePoint(boundary.getReferencePoint());
+
+                if (boundary.getMeasurements() != null) {
+                    bDto.setMeasurements(boundary.getMeasurements().stream().map(m -> {
+                        AreaCalculationResponseDto.MeasurementDto mDto = new AreaCalculationResponseDto.MeasurementDto();
+                        mDto.setId(m.getId());
+                        mDto.setValueConvertedMeters(m.getValueConvertedMeters());
+                        return mDto;
+                    }).collect(Collectors.toList()));
+                }
+
                 return bDto;
             }).collect(Collectors.toList()));
         }

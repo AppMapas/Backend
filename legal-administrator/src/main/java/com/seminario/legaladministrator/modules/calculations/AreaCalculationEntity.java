@@ -4,7 +4,9 @@ import com.seminario.legaladministrator.modules.users.ClientUserEntity;
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 
+import java.sql.Types;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -55,7 +57,7 @@ public class AreaCalculationEntity {
     @Column(name = "location", length = 255)
     private String location;
 
-    @Lob
+    @JdbcTypeCode(Types.BINARY)
     @Column(name = "plan_image", columnDefinition = "BYTEA")
     private byte[] planImage;
 }

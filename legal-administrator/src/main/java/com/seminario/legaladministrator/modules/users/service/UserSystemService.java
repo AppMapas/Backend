@@ -111,12 +111,24 @@ public class UserSystemService {
         userSystemRepository.deleteById(dpi);
     }
 
-    public void updatePassword(String dpi, String newPassword) {
+    public void updatePassword(String dpi, String newPassword, String code) {
         UserSystemEntity existingUser = userSystemRepository.findById(dpi)
                 .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado con DPI: " + dpi));
 
         if (newPassword == null || newPassword.isBlank()) {
             throw new InvalidPasswordException("La nueva contraseña no puede estar vacía");
+        }
+
+        // Si el usuario tiene 2FA activo, exigimos y validamos el código
+        if (existingUser.isTwoFactorEnabled()) {
+            if (code == null || code.isBlank()) {
+                throw new IllegalArgumentException("Se requiere el código 2FA para actualizar la contraseña.");
+            }
+
+            boolean isValid = totpService.verifyCode(existingUser.getTwoFactorCode(), code);
+            if (!isValid) {
+                throw new IllegalArgumentException("El código 2FA ingresado es inválido o ha expirado.");
+            }
         }
 
         existingUser.setPasswordHash(passwordEncoder.encode(newPassword));

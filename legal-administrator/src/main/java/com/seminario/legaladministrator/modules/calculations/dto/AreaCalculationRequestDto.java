@@ -2,6 +2,7 @@ package com.seminario.legaladministrator.modules.calculations.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -30,6 +31,12 @@ public class AreaCalculationRequestDto {
     private String location;
 
     private String planImageBase64;
+
+    private TerrainMetaDto meta;
+
+    @NotNull(message = "Debe incluir los vértices del plano")
+    @Size(min = 3, message = "El polígono debe tener al menos 3 vértices")
+    private List<CoordinateDto> vertices;
 
     @NotNull(message = "Debe incluir al menos 3 colindancias")
     private List<BoundaryRequestDto> boundaries;

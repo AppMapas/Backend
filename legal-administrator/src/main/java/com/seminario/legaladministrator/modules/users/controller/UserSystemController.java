@@ -50,7 +50,9 @@ public class UserSystemController {
             @PathVariable String dpi,
             @RequestBody Map<String, String> requestBody) {
         String newPassword = requestBody.get("password");
-        userSystemService.updatePassword(dpi, newPassword);
+        String code = requestBody.get("code");
+
+        userSystemService.updatePassword(dpi, newPassword, code);
         return ResponseEntity.noContent().build();
     }
 

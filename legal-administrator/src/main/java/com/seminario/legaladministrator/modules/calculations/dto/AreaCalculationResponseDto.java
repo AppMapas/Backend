@@ -17,6 +17,7 @@ public class AreaCalculationResponseDto {
     private String terrainName;
     private String generalDescription;
     private Double totalAreaSquareMeters;
+    private Double errorMarginPercentage;
     private String legalNotice;
     private LocalDate createdAt;
     private LocalDate updatedAt;

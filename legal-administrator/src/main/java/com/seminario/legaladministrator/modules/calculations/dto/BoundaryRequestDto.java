@@ -14,7 +14,7 @@ public class BoundaryRequestDto {
     @NotNull(message = "El número de lado es obligatorio")
     private Long sideNumber;
     private String referencePoint;
-    private String orientation;
+    private Double orientation;
 
     @NotNull(message = "Las medidas de colindancia son obligatorias")
     private List<MeasurementRequestDto> measurements;

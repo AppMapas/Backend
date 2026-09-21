@@ -147,8 +147,8 @@ public class PdfReportService {
         document.add(new Paragraph("Nombre: " + clientName, bodyFont));
         document.add(new Paragraph("Ubicación: " + location, bodyFont));
         document.add(new Paragraph("Fecha de Emisión: " + createdAt, bodyFont));
-        document.add(new Paragraph("Área Total Estimada: " + areaStr + " m²", titleFont));
         document.add(new Paragraph("Observaciones: " + observations, bodyFont));
+        document.add(new Paragraph("Área Total Estimada: " + areaStr + " m²", titleFont));
 
         Paragraph marginNote = new Paragraph("Nota: Área calculada con base en descripciones de escrituras (Sujeto a variación por levantamiento topográfico)", subtitleFont);
         marginNote.setSpacingAfter(5);
