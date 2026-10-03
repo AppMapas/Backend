@@ -1,7 +1,10 @@
 package com.seminario.legaladministrator.config.exceptions;
 
 import com.seminario.legaladministrator.modules.auth.exceptions.InvalidCredentialsException;
+import com.seminario.legaladministrator.modules.processes.ProcessCatalogException;
 import com.seminario.legaladministrator.modules.users.Exceptions.*;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,6 +18,21 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(ProcessCatalogException.class)
+    public ResponseEntity<Map<String, Object>> handleProcessCatalogException(ProcessCatalogException ex) {
+        return buildResponse(ex.getStatus(), ex.getMessage());
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "El registro ya existe o está siendo utilizado.");
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleConcurrentUpdate(ObjectOptimisticLockingFailureException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "El registro cambió durante la edición. Recarga su información.");
+    }
+
     @ExceptionHandler({
             UserAlreadyExistsException.class
     })
