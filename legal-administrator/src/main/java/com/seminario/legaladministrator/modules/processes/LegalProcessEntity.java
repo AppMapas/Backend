@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -54,6 +55,13 @@ public class LegalProcessEntity {
     private UUID requestId;
     @Column(name = "request_hash", length = 64, updatable = false)
     private String requestHash;
+    /**
+     * Costo total pactado en quetzales para este expediente (HU-08).
+     * {@code null} significa que todavía no se acuerda, no que sea cero: el
+     * resumen financiero debe distinguir ambos casos.
+     */
+    @Column(name = "total_amount", precision = 14, scale = 2)
+    private BigDecimal totalAmount;
 
     @PrePersist
     void beforeInsert() {
