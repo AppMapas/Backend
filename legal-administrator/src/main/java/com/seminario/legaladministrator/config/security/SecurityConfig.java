@@ -39,6 +39,12 @@ public class SecurityConfig {
                         // 3. Rutas específicas protegidas por roles
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/register").hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAnyAuthority("Administrador", "Abogada")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/requirements", "/api/v1/process-types")
+                            .hasAnyAuthority("Administrador", "Abogada")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/requirements/**", "/api/v1/process-types/**")
+                            .hasAnyAuthority("Administrador", "Abogada")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/requirements/**", "/api/v1/process-types/**")
+                            .hasAnyAuthority("Administrador", "Abogada")
 
                         // 4. Todo lo demás requiere autenticación obligatoria
                         .anyRequest().authenticated()
