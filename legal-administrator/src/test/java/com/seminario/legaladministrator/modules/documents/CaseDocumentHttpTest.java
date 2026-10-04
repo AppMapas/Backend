@@ -2,9 +2,11 @@ package com.seminario.legaladministrator.modules.documents;
 
 import com.seminario.legaladministrator.config.exceptions.GlobalExceptionHandler;
 import com.seminario.legaladministrator.config.security.*;
+import com.seminario.legaladministrator.shared.OperationException;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
@@ -78,6 +80,17 @@ class CaseDocumentHttpTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment;")));
+    }
+
+    @Test void missingStoredFileReturns410SoTheClientDoesNotOfferToRetry() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(service.content(1L, id)).thenThrow(new OperationException(HttpStatus.GONE,
+                "El archivo ya no está disponible en el almacenamiento. Vuelve a adjuntarlo para poder consultarlo."));
+        mvc.perform(get("/api/v1/legal-processes/1/documents/" + id + "/content")
+                .with(user("abogada").authorities(new SimpleGrantedAuthority("Abogada"))))
+                .andExpect(status().isGone())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ya no está disponible")));
     }
 
     @Test void uploadUsesMultipartFileAndMissingFileReturns400() throws Exception {

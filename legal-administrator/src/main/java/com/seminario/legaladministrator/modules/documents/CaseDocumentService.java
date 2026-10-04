@@ -92,6 +92,11 @@ public class CaseDocumentService {
                 .orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Documento no encontrado en este expediente."));
         try {
             return new Content(Summary.of(entity), storage(entity.getStorageProvider()).read(entity.getObjectKey()));
+        } catch (DocumentMissingException error) {
+            // Los metadatos existen pero el objeto no: 410 y no un 503 reintentable.
+            log.error("El documento {} no está en el almacenamiento ({})", id, entity.getStorageProvider(), error);
+            throw new OperationException(HttpStatus.GONE,
+                    "El archivo ya no está disponible en el almacenamiento. Vuelve a adjuntarlo para poder consultarlo.");
         } catch (IOException | RuntimeException error) { throw unavailable(error); }
     }
 

@@ -90,6 +90,22 @@ class DocumentValidationAndStorageTest {
     }
 
     @Test
+    void localStorageSignalsMissingObjectsSeparatelyFromOtherFailures() throws Exception {
+        properties.setLocalDirectory(directory.toString());
+        var storage = new LocalDocumentStorage(properties);
+        String key = UUID.randomUUID().toString();
+        // Antes de escribir, el objeto no existe: es un estado definitivo, no un fallo de disco.
+        assertThatThrownBy(() -> storage.read(key)).isInstanceOf(DocumentMissingException.class);
+        storage.put(key, new ByteArrayInputStream(new byte[]{1}), "application/pdf");
+        assertThat(storage.read(key)).containsExactly(1);
+        storage.delete(key);
+        assertThatThrownBy(() -> storage.read(key)).isInstanceOf(DocumentMissingException.class);
+        // Una clave mal formada sigue siendo un error de configuración, no "documento ausente".
+        assertThatThrownBy(() -> storage.read("no-es-uuid"))
+                .isNotInstanceOf(DocumentMissingException.class).isInstanceOf(IOException.class);
+    }
+
+    @Test
     void localStorageRemovesPartialFileAndKeepsPermissionsPrivate() throws Exception {
         properties.setLocalDirectory(directory.toString());
         var storage = new LocalDocumentStorage(properties);

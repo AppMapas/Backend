@@ -28,7 +28,15 @@ public class GcsDocumentStorage implements DocumentStorage {
     }
 
     public byte[] read(String key) throws IOException {
-        return client().readAllBytes(properties.getGcsBucket(), key);
+        try {
+            return client().readAllBytes(properties.getGcsBucket(), key);
+        } catch (StorageException error) {
+            // 404 significa que el objeto no está: definitive, no vale la pena reintentar.
+            if (error.getCode() == 404) {
+                throw new DocumentMissingException("El objeto no existe en el bucket.", error);
+            }
+            throw error;
+        }
     }
 
     public void delete(String key) throws IOException {

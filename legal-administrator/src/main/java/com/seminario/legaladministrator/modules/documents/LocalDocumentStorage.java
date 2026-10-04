@@ -76,6 +76,14 @@ public class LocalDocumentStorage implements DocumentStorage {
         }
     }
 
-    public byte[] read(String key) throws IOException { return Files.readAllBytes(resolve(key)); }
+    public byte[] read(String key) throws IOException {
+        Path path = resolve(key);
+        try { return Files.readAllBytes(path); }
+        // Un objeto ausente es definitivo: la fila de metadatos quedó sin archivo.
+        catch (NoSuchFileException error) {
+            throw new DocumentMissingException("El documento no existe en el almacenamiento local.", error);
+        }
+    }
+
     public void delete(String key) throws IOException { Files.deleteIfExists(resolve(key)); }
 }

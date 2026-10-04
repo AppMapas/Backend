@@ -152,7 +152,14 @@ Todas las rutas requieren `Authorization: Bearer <accessToken>`.
 Metadatos: `id`, `name`, `contentType`, `sizeBytes`, `uploadedAt`.
 Errores JSON: 400 archivo inválido, 401 sesión requerida, 403 sin permiso,
 404 expediente/documento inexistente, 409 expediente inactivo,
-413 tamaño excedido y 503 almacenamiento no disponible.
+410 el archivo ya no está en el almacenamiento (estado definitivo: el cliente
+no debe ofrecer reintentar, hay que volver a adjuntarlo), 413 tamaño excedido
+y 503 almacenamiento no disponible de forma temporal (sí reintentable).
+
+Un 410 indica que los metadatos sobrevivieron pero el objeto no: ocurre si el
+archivo se borra del almacenamiento o del bucket por fuera de la aplicación. Los
+almacenes lanzan `DocumentMissingException` y el servicio lo traduce a 410; los
+demás fallos de E/S (permisos, disco, red, 5xx del bucket) siguen siendo 503.
 
 Configurar el máximo de solicitud por encima del máximo de archivo para permitir
 el envoltorio multipart. `MB` de Spring equivale aquí a MiB (1024 × 1024 bytes).

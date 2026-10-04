@@ -93,4 +93,32 @@ class CaseDocumentServiceTest {
         assertThat(service.content(1L, id).bytes()).isEqualTo(file.getBytes());
         verify(cloud, never()).read(anyString());
     }
+
+    @Test void metadataWithoutStoredFileIsDefinitiveAndNotRetryable() throws Exception {
+        UUID id = UUID.randomUUID();
+        var entity = new CaseDocumentEntity();
+        entity.setId(id);
+        entity.setStorageProvider("local");
+        entity.setObjectKey(id.toString());
+        when(documents.findByIdAndLegalProcessId(id, 1L)).thenReturn(Optional.of(entity));
+        when(local.read(id.toString()))
+                .thenThrow(new DocumentMissingException("no existe", new java.nio.file.NoSuchFileException(id.toString())));
+        // 410 y no 503: el cliente no debe ofrecer reintentar un archivo que ya no está.
+        assertThatThrownBy(() -> service.content(1L, id)).isInstanceOfSatisfying(OperationException.class, error -> {
+            assertThat(error.getStatus().value()).isEqualTo(410);
+            assertThat(error.getMessage()).contains("ya no está disponible");
+        });
+    }
+
+    @Test void otherStorageFailuresRemainRetryable() throws Exception {
+        UUID id = UUID.randomUUID();
+        var entity = new CaseDocumentEntity();
+        entity.setId(id);
+        entity.setStorageProvider("local");
+        entity.setObjectKey(id.toString());
+        when(documents.findByIdAndLegalProcessId(id, 1L)).thenReturn(Optional.of(entity));
+        when(local.read(id.toString())).thenThrow(new IOException("disco no disponible"));
+        assertThatThrownBy(() -> service.content(1L, id)).isInstanceOfSatisfying(OperationException.class,
+                error -> assertThat(error.getStatus().value()).isEqualTo(503));
+    }
 }
