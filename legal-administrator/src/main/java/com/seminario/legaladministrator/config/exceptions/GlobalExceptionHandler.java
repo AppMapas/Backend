@@ -22,6 +22,17 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleUploadSize(Exception ex) {
+        return buildResponse(HttpStatus.PAYLOAD_TOO_LARGE, "El archivo supera el límite de tamaño permitido.");
+    }
+
+    @ExceptionHandler({org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            org.springframework.web.multipart.MultipartException.class})
+    public ResponseEntity<Map<String, Object>> handleMultipart(Exception ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "Envía un archivo en el campo 'file' mediante multipart/form-data.");
+    }
+
     @ExceptionHandler(OperationException.class)
     public ResponseEntity<Map<String, Object>> handleOperation(OperationException ex) {
         return buildResponse(ex.getStatus(), ex.getMessage());

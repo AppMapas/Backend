@@ -33,6 +33,11 @@ services:
       DB_USER: ${POSTGRES_USER:-admin}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-administrador}
       JWT_SECRET: ${JWT_SECRET}
+      DOCUMENT_STORAGE_PROVIDER: ${DOCUMENT_STORAGE_PROVIDER:-local}
+      DOCUMENT_LOCAL_DIRECTORY: /app/data/documents
+      DOCUMENT_GCS_BUCKET: ${DOCUMENT_GCS_BUCKET:-}
+      DOCUMENT_MAX_FILE_SIZE: ${DOCUMENT_MAX_FILE_SIZE:-10MB}
+      DOCUMENT_MAX_REQUEST_SIZE: ${DOCUMENT_MAX_REQUEST_SIZE:-11MB}
     depends_on:
       db:
         condition: service_healthy
@@ -40,6 +45,7 @@ services:
       - ./legal-administrator/src:/app/src
       - ./legal-administrator/pom.xml:/app/pom.xml
       - m2_data:/root/.m2
+      - document_data:/app/data/documents
       
   # para levantar todo docker compose --profile all up
   frontend:
@@ -60,6 +66,8 @@ services:
       - backend
 
 volumes:
+  document_data:
+    name: legal_document_data
   pg_data:
     name: legal_pg_data
   m2_data:

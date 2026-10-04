@@ -20,6 +20,8 @@
 
 ### Endpoints
 
+- **Documentos de expedientes:** [carga, consulta, descarga y configuración local/Google Cloud Storage](docs/documentos-expedientes.md).
+
 | Módulo          | Ruta base              | Descripción                                                       | Documentación                              |
 |-----------------|------------------------|-------------------------------------------------------------------|--------------------------------------------|
 | 🔐 Auth         | `/api/v1/auth`         | Login, tokens JWT, configuración y verificación 2FA               | [auth.md](docs/endpoints/auth.md)          |
