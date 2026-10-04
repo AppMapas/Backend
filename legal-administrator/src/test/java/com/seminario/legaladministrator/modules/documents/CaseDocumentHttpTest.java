@@ -20,8 +20,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 @SpringJUnitConfig(CaseDocumentHttpTest.Config.class)
 @WebAppConfiguration
@@ -88,5 +87,26 @@ class CaseDocumentHttpTest {
                 .file(new MockMultipartFile("file", "DPI.pdf", "application/pdf", "%PDF-1.7\n%%EOF".getBytes()))
                 .with(auth)).andExpect(status().isCreated());
         verify(service).upload(eq(1L), any());
+    }
+
+    @Test void uploadReturns201WithMetadataAndHidesTheStorageAddress() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(service.upload(eq(1L), any())).thenReturn(new CaseDocumentService.Summary(
+                id, "Escritura.pdf", "application/pdf", 16, Instant.parse("2026-10-04T15:00:00Z")));
+        mvc.perform(multipart("/api/v1/legal-processes/1/documents")
+                .file(new MockMultipartFile("file", "Escritura.pdf", "application/pdf", "%PDF-1.7\n%%EOF".getBytes()))
+                .with(user("abogada").authorities(new SimpleGrantedAuthority("Abogada"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.name").value("Escritura.pdf"))
+                .andExpect(jsonPath("$.contentType").value("application/pdf"))
+                .andExpect(jsonPath("$.sizeBytes").value(16))
+                .andExpect(jsonPath("$.uploadedAt").value("2026-10-04T15:00:00Z"))
+                // La dirección interna del objeto no sale en la respuesta.
+                .andExpect(jsonPath("$.objectKey").doesNotExist())
+                .andExpect(jsonPath("$.storageProvider").doesNotExist())
+                .andExpect(jsonPath("$.legalProcess").doesNotExist())
+                .andExpect(jsonPath("$.uploadedBy").doesNotExist())
+                .andExpect(jsonPath("$.length()").value(5));
     }
 }

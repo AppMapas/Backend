@@ -6,6 +6,7 @@ import com.seminario.legaladministrator.modules.processes.repository.LegalProces
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import com.seminario.legaladministrator.shared.OperationException;
 import org.junit.jupiter.api.*;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.*;
 import java.io.IOException;
@@ -36,8 +37,19 @@ class CaseDocumentServiceTest {
 
     @Test void storesMetadataAndCleansObjectOnDatabaseRollback() throws Exception {
         var summary = service.upload(1L, file);
-        verify(documents).saveAndFlush(argThat(entity -> entity.getOriginalName().equals("DPI.pdf")
-                && entity.getStorageProvider().equals("local") && entity.getSizeBytes() == file.getSize()));
+        var captor = ArgumentCaptor.forClass(CaseDocumentEntity.class);
+        verify(documents).saveAndFlush(captor.capture());
+        var entity = captor.getValue();
+        // La metadata queda asociada al expediente solicitado y al usuario que la subió.
+        assertThat(entity.getLegalProcess()).isSameAs(cases.findById(1L).orElseThrow());
+        assertThat(entity.getUploadedBy()).isSameAs(access.current());
+        assertThat(entity.getOriginalName()).isEqualTo("DPI.pdf");
+        assertThat(entity.getStorageProvider()).isEqualTo("local");
+        assertThat(entity.getSizeBytes()).isEqualTo(file.getSize());
+        assertThat(entity.getUploadedAt()).isNotNull();
+        // En la base solo queda la dirección del archivo: clave interna, nunca el nombre del cliente.
+        assertThat(entity.getObjectKey()).isEqualTo(entity.getId().toString());
+        assertThat(entity.getObjectKey()).doesNotContain(file.getOriginalFilename());
         verify(local).put(eq(summary.id().toString()), any(), eq("application/pdf"));
         for (var callback : TransactionSynchronizationManager.getSynchronizations()) {
             callback.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);

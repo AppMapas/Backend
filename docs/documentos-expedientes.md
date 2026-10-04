@@ -112,6 +112,31 @@ al bucket y actualizar `storage_provider` a `gcs` después de verificar la copia
 junto con la migración de la base de datos. No cambiar el bucket/directorio de datos
 existentes sin trasladar también sus objetos.
 
+## Metadatos y dirección del archivo
+
+`POST /{caseId}/documents` (multipart, campo `file`) guarda el archivo en el
+almacenamiento y persiste **solo metadatos** en `case_document`:
+
+| Columna | Contenido |
+| --- | --- |
+| `id` | UUID del documento; también es la clave del objeto |
+| `legal_process_id` | Expediente al que se asocia (FK a `legal_process`) |
+| `original_name` | Nombre que envió el cliente, para mostrar y descargar |
+| `content_type`, `size_bytes` | Tipo y tamaño verificados |
+| `storage_provider` | `local` o `gcs`, según dónde se guardó |
+| `object_key` | **Dirección del archivo** dentro del almacenamiento (UUID) |
+| `uploaded_by`, `uploaded_at` | Quién lo subió y cuándo |
+
+El contenido **nunca** se guarda en PostgreSQL: la tabla no tiene columnas
+binarias y `object_key` es una clave interna, nunca el nombre del cliente. La
+respuesta `201` devuelve únicamente `id`, `name`, `contentType`, `sizeBytes` y
+`uploadedAt`; la dirección interna y el proveedor no se exponen. Para leer el
+archivo se usa `GET /{caseId}/documents/{id}/content`, que verifica que el
+documento pertenezca al expediente indicado.
+
+El objeto se escribe antes del commit de los metadatos; si la transacción
+revierte, se elimina el objeto.
+
 ## Contrato HTTP
 
 Todas las rutas requieren `Authorization: Bearer <accessToken>`.

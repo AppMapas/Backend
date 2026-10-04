@@ -1,6 +1,7 @@
 package com.seminario.legaladministrator.modules.documents;
 
 import com.seminario.legaladministrator.config.security.OfficeAccess;
+import com.seminario.legaladministrator.shared.OperationException;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
@@ -94,6 +95,35 @@ class DocumentPersistenceTest {
         assertThat(Files.readAllBytes(stored)).isEqualTo(content);
         assertThat(jdbc.queryForObject("SELECT size_bytes FROM case_document WHERE id = ?", Long.class, uploaded.id()))
                 .isEqualTo((long) content.length);
+    }
+
+    @Test void metadataRowKeepsOnlyTheStorageAddressAndLinksTheCase() throws Exception {
+        var uploaded = service.upload(caseId, file);
+        var row = jdbc.queryForMap("select * from case_document where id = ?", uploaded.id());
+        assertThat(row).containsOnlyKeys("id", "legal_process_id", "original_name", "content_type",
+                "size_bytes", "storage_provider", "object_key", "uploaded_by", "uploaded_at");
+        assertThat(row.get("legal_process_id")).isEqualTo(caseId);
+        assertThat(row.get("original_name")).isEqualTo("Escritura.pdf");
+        assertThat(row.get("storage_provider")).isEqualTo("local");
+        assertThat(row.get("object_key")).isEqualTo(uploaded.id().toString()).asString().doesNotContain("Escritura");
+        assertThat(row.get("uploaded_by")).asString().isNotBlank();
+        // El contenido vive en el almacenamiento: la tabla no admite columnas binarias.
+        assertThat(jdbc.queryForList("""
+                select column_name from information_schema.columns
+                where table_schema = current_schema() and table_name = 'case_document'
+                  and data_type in ('bytea', 'oid')
+                """)).isEmpty();
+        // Un documento no aparece en el listado de otro expediente.
+        long other = jdbc.queryForObject("""
+                insert into legal_process(dpi_client, id_user_system_assigned, id_process_type, current_status,
+                    created_at, process_type_name_snapshot, process_type_version_snapshot)
+                select dpi_client, id_user_system_assigned, id_process_type, current_status, created_at,
+                    process_type_name_snapshot, process_type_version_snapshot
+                from legal_process where id = ? returning id
+                """, Long.class, caseId);
+        assertThat(service.list(other)).isEmpty();
+        assertThatThrownBy(() -> service.content(other, uploaded.id()))
+                .isInstanceOfSatisfying(OperationException.class, error -> assertThat(error.getStatus().value()).isEqualTo(404));
     }
 
     private byte[] syntheticPdf(int size) {
