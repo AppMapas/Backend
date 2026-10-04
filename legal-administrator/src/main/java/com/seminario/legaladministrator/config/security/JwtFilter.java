@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -29,21 +29,22 @@ public class JwtFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
-            if (jwtProvider.validateToken(token)) {
-                String email = jwtProvider.getEmailFromToken(token);
-
-                // 1. Extraer el rol que se guardó en el token al hacer login
-                String role = jwtProvider.getRoleFromToken(token);
-
-                // 2. Convertir el rol en una autoridad reconocida por Spring Security
-                List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
-
-                // 3. Pasar las autoridades al token de autenticación
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        email, null, authorities
-                );
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(auth);
+            SecurityContextHolder.clearContext();
+            try {
+                if (jwtProvider.validateToken(token)) {
+                    String email = jwtProvider.getEmailFromToken(token);
+                    String role = jwtProvider.getRoleFromToken(token);
+                    // Los tokens de renovación no tienen rol y no autentican peticiones a la API.
+                    if (email != null && !email.isBlank() && role != null && !role.isBlank()) {
+                        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(role));
+                        var authentication = new UsernamePasswordAuthenticationToken(email, null, authorities);
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
+                }
+            } catch (JwtException | IllegalArgumentException ex) {
+                // Una expiración entre validación y lectura también debe terminar en 401.
+                SecurityContextHolder.clearContext();
             }
         }
         filterChain.doFilter(request, response);

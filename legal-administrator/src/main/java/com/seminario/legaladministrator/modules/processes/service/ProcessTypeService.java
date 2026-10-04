@@ -39,6 +39,12 @@ public class ProcessTypeService {
     }
 
     @Transactional(readOnly = true)
+    public List<ProcessTypeSummaryResponse> list(ProcessTypeStatus status) {
+        if (status == null) return list();
+        return processTypeRepository.findByStatusOrderByNameAsc(status).stream().map(this::toSummary).toList();
+    }
+
+    @Transactional(readOnly = true)
     public ProcessTypeResponse get(Long id) {
         ProcessTypeEntity processType = findProcessType(id);
         return toResponse(processType);

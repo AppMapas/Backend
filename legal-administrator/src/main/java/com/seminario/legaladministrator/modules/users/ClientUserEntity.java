@@ -1,12 +1,12 @@
 package com.seminario.legaladministrator.modules.users;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import com.seminario.legaladministrator.modules.locations.CountryEntity;
+import com.seminario.legaladministrator.modules.locations.MunicipalityEntity;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -34,4 +34,35 @@ public class ClientUserEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
+
+    private LocalDate birthDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_marital_status")
+    private MaritalStatusEntity maritalStatus;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_nationality")
+    private CountryEntity nationality;
+    @Column(length = 150)
+    private String occupation;
+    @Column(name = "exact_address", length = 255)
+    private String exactAddress;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_municipality")
+    private MunicipalityEntity municipality;
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean active = true;
+    @Version
+    private Long version;
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+    @PrePersist
+    void beforeInsert() {
+        if (createdAt == null) createdAt = LocalDate.now();
+        updatedAt = Instant.now();
+    }
+    @PreUpdate
+    void beforeUpdate() {
+        updatedAt = Instant.now();
+    }
 }

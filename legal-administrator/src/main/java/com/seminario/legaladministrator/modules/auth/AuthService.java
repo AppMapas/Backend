@@ -145,13 +145,21 @@ public class AuthService {
         String newAccessToken = jwtProvider.generateAccessToken(email, role);
 
         return LoginResponseDto.builder()
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .role(role)
+                .twoFactorRequired(false)
                 .accessToken(newAccessToken)
                 .refreshToken(refreshToken)
                 .build();
     }
 
     private LoginResponseDto getLoginResponseDto(UserSystemEntity user) {
-        String roleName = (user.getRole() != null) ? user.getRole().getName() : "USER";
+        String roleName = "USER";
+        if (user.getRole() != null) {
+            roleName = user.getRole().getName();
+        }
         String newAccessToken = jwtProvider.generateAccessToken(user.getEmail(), roleName);
         String newRefreshToken = jwtProvider.generateRefreshToken(user.getEmail());
 

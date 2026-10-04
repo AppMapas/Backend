@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import com.seminario.legaladministrator.modules.processes.ProcessTypeStatus;
 
 import java.util.List;
 
@@ -27,8 +29,8 @@ public class ProcessTypeController {
     private final ProcessTypeService processTypeService;
 
     @GetMapping
-    public List<ProcessTypeSummaryResponse> list() {
-        return processTypeService.list();
+    public List<ProcessTypeSummaryResponse> list(@RequestParam(required = false) ProcessTypeStatus status) {
+        return processTypeService.list(status);
     }
 
     @GetMapping("/{id}")
