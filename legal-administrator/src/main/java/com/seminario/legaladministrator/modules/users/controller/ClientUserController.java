@@ -2,6 +2,9 @@ package com.seminario.legaladministrator.modules.users.controller;
 
 import com.seminario.legaladministrator.modules.users.dto.ClientUserRequestDto;
 import com.seminario.legaladministrator.modules.users.dto.ClientUserResponseDto;
+import com.seminario.legaladministrator.modules.users.dto.ClientUserUpdateDto;
+import com.seminario.legaladministrator.shared.PageResponse;
+import com.seminario.legaladministrator.shared.VersionRequest;
 import com.seminario.legaladministrator.modules.users.service.ClientUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,14 +41,28 @@ public class ClientUserController {
     @PutMapping("/{dpi}")
     public ResponseEntity<ClientUserResponseDto> updateClient(
             @PathVariable String dpi,
-            @Valid @RequestBody ClientUserRequestDto request) {
+            @Valid @RequestBody ClientUserUpdateDto request) {
         ClientUserResponseDto response = clientUserService.updateClient(dpi, request);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{dpi}")
-    public ResponseEntity<Void> deleteClient(@PathVariable String dpi) {
-        clientUserService.deleteClient(dpi);
+    public ResponseEntity<Void> deleteClient(@PathVariable String dpi, @RequestParam Long version) {
+        clientUserService.deactivateClient(dpi, version);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{dpi}/deactivate")
+    public ClientUserResponseDto deactivate(@PathVariable String dpi, @Valid @RequestBody VersionRequest request) {
+        return clientUserService.deactivateClient(dpi, request.version());
+    }
+
+    @GetMapping("/search")
+    public PageResponse<ClientUserResponseDto> search(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return clientUserService.search(q, active, page, size);
     }
 }

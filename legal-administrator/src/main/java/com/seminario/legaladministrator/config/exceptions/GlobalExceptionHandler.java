@@ -15,9 +15,33 @@ import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import com.seminario.legaladministrator.shared.OperationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(OperationException.class)
+    public ResponseEntity<Map<String, Object>> handleOperation(OperationException ex) {
+        return buildResponse(ex.getStatus(), ex.getMessage());
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class})
+    public ResponseEntity<Map<String, Object>> handleInvalidRequest(Exception ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, "La solicitud contiene parámetros o JSON no válidos.");
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurityAccessDenied(Exception ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, "No tienes permisos para este recurso.");
+    }
+
+    @ExceptionHandler(org.springframework.dao.PessimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleBusyRecord(Exception ex) {
+        return buildResponse(HttpStatus.CONFLICT, "El registro está siendo modificado. Inténtalo nuevamente.");
+    }
     @ExceptionHandler(ProcessCatalogException.class)
     public ResponseEntity<Map<String, Object>> handleProcessCatalogException(ProcessCatalogException ex) {
         return buildResponse(ex.getStatus(), ex.getMessage());
@@ -70,7 +94,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGlobalException(Exception ex) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado en el servidor: " + ex.getMessage());
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado en el servidor.");
     }
 
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
