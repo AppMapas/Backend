@@ -7,7 +7,7 @@ o cámara y pulsar **Guardar archivos pendientes**. Cada archivo se envía por
 separado; los errores se muestran por archivo y los guardados no se reenvían.
 Consultar muestra imágenes/PDF; Descargar recupera el original.
 
-- PDF, JPG/JPEG y PNG, hasta **10 MiB por archivo** por defecto.
+- PDF, JPG/JPEG y PNG, hasta **20 MiB por archivo** por defecto.
 - La API valida extensión, MIME declarado, firma del contenido, tamaño y nombre.
 - La cámara depende del soporte del navegador y dispositivo. HEIC no está permitido.
 - Archivos vacíos, formatos no admitidos y expedientes inactivos se rechazan.
@@ -18,6 +18,40 @@ Consultar muestra imágenes/PDF; Descargar recupera el original.
 - Archivos y rutas de almacenamiento nunca se publican como recursos estáticos.
   Consulta y descarga requieren Bearer y devuelven `Cache-Control: no-store`.
 
+## Límite de subida
+
+| Variable | Predeterminado | Significado |
+| --- | --- | --- |
+| `DOCUMENT_MAX_FILE_SIZE` | `20MB` | Tope por archivo; la API lo publica en `/documents/policy` |
+| `DOCUMENT_MAX_REQUEST_SIZE` | `21MB` | Tope de la petición multipart; incluye el envoltorio |
+
+Se eligió **20 MiB** porque en la práctica un expediente se documenta con
+escrituras, contratos y escaneos de varias páginas, no con archivos de diseño de
+gran tamaño; 20 MiB cubre esos casos con holgura y mantiene acotada la memoria y
+el ancho de banda del despliegue. El límite es configurable hasta 50 MiB.
+
+La subida **no carga el archivo en memoria**:
+
+- `spring.servlet.multipart.file-size-threshold=0B` obliga al contenedor a escribir
+  la petición en el directorio temporal desde el primer byte; el archivo temporal
+  lo elimina el contenedor al finalizar la petición.
+- `DocumentValidator` recorre el flujo en bloques de 8 KiB contando bytes reales y
+  conservando solo los 8 primeros y los últimos 1024 para verificar la firma.
+- `DocumentStorage` recibe un `InputStream`: el almacenamiento local copia por
+  bloques y GCS sube con `createFrom` en trozos de 256 KiB.
+
+Coste asumido: validación y escritura leen el flujo dos veces, contra el disco
+temporal o la red, sin retenciones del archivo completo.
+
+La **descarga** sí arma el archivo en memoria para responderlo (`byte[]` con
+`Content-Length`), por lo que queda acotada por el mismo límite de 20 MiB. Con
+pocas consultas simultáneas es aceptable; si la concurrencia creciera, migrar el
+`content` a `StreamingResponseBody` sin cambiar el contrato HTTP.
+
+`DOCUMENT_MAX_REQUEST_SIZE` debe superar siempre a `DOCUMENT_MAX_FILE_SIZE`; si no,
+la aplicación no arranca. Al cambiar el límite, ajustar también el del proxy o de
+la plataforma (Cloud Run) delante del backend.
+
 ## Entorno local (predeterminado)
 
 No requiere cuenta ni credenciales de Google Cloud.
@@ -25,12 +59,16 @@ No requiere cuenta ni credenciales de Google Cloud.
 ```dotenv
 DOCUMENT_STORAGE_PROVIDER=local
 DOCUMENT_LOCAL_DIRECTORY=./data/documents
-DOCUMENT_MAX_FILE_SIZE=10MB
-DOCUMENT_MAX_REQUEST_SIZE=11MB
+DOCUMENT_MAX_FILE_SIZE=20MB
+DOCUMENT_MAX_REQUEST_SIZE=21MB
 ```
 
 La ruta es relativa al directorio de ejecución del backend. Fuera de Docker, exportar
 estas variables o incluirlas en `.env` en ese directorio (Spring lo importa).
+El directorio se crea con permisos `700` y cada documento con `600` cuando el
+sistema de archivos es POSIX. Si el directorio está montado con otro propietario y
+el chmod falla, el servicio registra un aviso y continúa en lugar de impedir la
+carga. El directorio no se sirve como recurso estático.
 
 Con `Backend/docker-compose.yml`, los archivos se guardan en el volumen persistente
 `legal_document_data`, montado en `/app/data/documents`; Compose transmite las
@@ -52,8 +90,8 @@ Asignar esa cuenta de servicio al backend (por ejemplo, Cloud Run) y configurar:
 ```dotenv
 DOCUMENT_STORAGE_PROVIDER=gcs
 DOCUMENT_GCS_BUCKET=NOMBRE_BUCKET
-DOCUMENT_MAX_FILE_SIZE=10MB
-DOCUMENT_MAX_REQUEST_SIZE=11MB
+DOCUMENT_MAX_FILE_SIZE=20MB
+DOCUMENT_MAX_REQUEST_SIZE=21MB
 ```
 
 El cliente usa **Application Default Credentials** de la cuenta del despliegue;
@@ -112,7 +150,8 @@ npm test
 npm run build
 ```
 
-Las pruebas de documentos cubren validación, almacenamiento local, rollback,
+Las pruebas de documentos cubren validación, streaming de firma y tamaño,
+almacenamiento local con permisos privados y limpieza ante fallo, rollback,
 fallos del proveedor, pertenencia al expediente, permisos HTTP y carga multipart.
 Para comprobar la migración, persistencia y rollback reales contra una base
 PostgreSQL **desechable** llamada `hu05_test`:

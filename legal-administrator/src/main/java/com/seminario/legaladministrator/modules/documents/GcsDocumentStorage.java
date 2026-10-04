@@ -4,6 +4,7 @@ import com.google.cloud.storage.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import java.io.IOException;
+import java.io.InputStream;
 
 @Component
 @RequiredArgsConstructor
@@ -20,10 +21,10 @@ public class GcsDocumentStorage implements DocumentStorage {
         return client;
     }
 
-    public void put(String key, byte[] content, String contentType) throws IOException {
-        client().create(BlobInfo.newBuilder(properties.getGcsBucket(), key)
+    public void put(String key, InputStream content, String contentType) throws IOException {
+        client().createFrom(BlobInfo.newBuilder(properties.getGcsBucket(), key)
                 .setContentType(contentType).setCacheControl("private, no-store").build(),
-                content, Storage.BlobTargetOption.doesNotExist());
+                content, 256 * 1024, Storage.BlobWriteOption.doesNotExist());
     }
 
     public byte[] read(String key) throws IOException {

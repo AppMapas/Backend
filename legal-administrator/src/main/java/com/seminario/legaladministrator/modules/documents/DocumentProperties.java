@@ -14,7 +14,8 @@ public class DocumentProperties {
     private String provider = "local";
     private String localDirectory = "./data/documents";
     private String gcsBucket = "";
-    private DataSize maxFileSize = DataSize.ofMegabytes(10);
+    private DataSize maxFileSize = DataSize.ofMegabytes(20);
+    private DataSize maxRequestSize = DataSize.ofMegabytes(21);
 
     @PostConstruct
     void validate() {
@@ -26,6 +27,9 @@ public class DocumentProperties {
         }
         if (maxFileSize.toBytes() <= 0 || maxFileSize.toBytes() > DataSize.ofMegabytes(50).toBytes()) {
             throw new IllegalStateException("El límite de documentos debe estar entre 1 byte y 50 MiB.");
+        }
+        if (maxRequestSize.toBytes() <= maxFileSize.toBytes()) {
+            throw new IllegalStateException("DOCUMENT_MAX_REQUEST_SIZE debe superar DOCUMENT_MAX_FILE_SIZE para admitir el envoltorio multipart.");
         }
     }
 }

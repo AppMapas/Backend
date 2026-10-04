@@ -18,6 +18,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.*;
 import org.springframework.transaction.support.TransactionTemplate;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
@@ -80,5 +81,28 @@ class DocumentPersistenceTest {
         });
         assertThat(repository.findById(id)).isEmpty();
         assertThat(Files.exists(directory.resolve(id.toString()))).isFalse();
+    }
+
+    @Test void largeFileIsStreamedToStorageWithoutTruncationOrCorruption() throws Exception {
+        byte[] content = syntheticPdf(5 * 1024 * 1024 + 12_345);
+        var large = new MockMultipartFile("file", "Contrato.pdf", "application/pdf", content);
+        var uploaded = service.upload(caseId, large);
+        Path stored = directory.resolve(uploaded.id().toString());
+        assertThat(uploaded.sizeBytes()).isEqualTo(content.length);
+        assertThat(Files.size(stored)).isEqualTo(content.length);
+        // Compara todo el contenido: detecta omisión, duplicación o Corruption del streaming.
+        assertThat(Files.readAllBytes(stored)).isEqualTo(content);
+        assertThat(jdbc.queryForObject("SELECT size_bytes FROM case_document WHERE id = ?", Long.class, uploaded.id()))
+                .isEqualTo((long) content.length);
+    }
+
+    private byte[] syntheticPdf(int size) {
+        byte[] content = new byte[size];
+        new Random(20261004L).nextBytes(content);
+        byte[] header = "%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII);
+        byte[] trailer = "\n%%EOF".getBytes(StandardCharsets.US_ASCII);
+        System.arraycopy(header, 0, content, 0, header.length);
+        System.arraycopy(trailer, 0, content, size - trailer.length, trailer.length);
+        return content;
     }
 }

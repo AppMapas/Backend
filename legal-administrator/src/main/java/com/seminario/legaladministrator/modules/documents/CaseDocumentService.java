@@ -60,13 +60,15 @@ public class CaseDocumentService {
         entity.setLegalProcess(legalCase);
         entity.setOriginalName(validated.name());
         entity.setContentType(validated.contentType());
-        entity.setSizeBytes(validated.bytes().length);
+        entity.setSizeBytes(validated.sizeBytes());
         entity.setStorageProvider(properties.getProvider());
         entity.setObjectKey(entity.getId().toString());
         entity.setUploadedBy(operator);
         entity.setUploadedAt(Instant.now());
         var storage = storage(entity.getStorageProvider());
-        try { storage.put(entity.getObjectKey(), validated.bytes(), validated.contentType()); }
+        try (var input = file.getInputStream()) {
+            storage.put(entity.getObjectKey(), input, validated.contentType());
+        }
         catch (IOException | RuntimeException error) { throw unavailable(error); }
         // También cubre errores de commit, posteriores al retorno del método.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

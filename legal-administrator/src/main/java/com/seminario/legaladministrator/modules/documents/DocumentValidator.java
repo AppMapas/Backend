@@ -17,7 +17,7 @@ public class DocumentValidator {
     private static final Map<String, String> TYPES = Map.of(
             "pdf", "application/pdf", "jpg", "image/jpeg", "jpeg", "image/jpeg", "png", "image/png");
 
-    public record Validated(String name, String contentType, byte[] bytes) { }
+    public record Validated(String name, String contentType, long sizeBytes) { }
 
     public Validated validate(MultipartFile file) throws IOException {
         if (file.isEmpty()) throw invalid("Selecciona un archivo que no esté vacío.");
@@ -38,21 +38,42 @@ public class DocumentValidator {
                 && !declared.equalsIgnoreCase(type)) {
             throw invalid("El tipo de archivo no coincide con su extensión.");
         }
-        byte[] bytes;
-        try (var input = file.getInputStream()) { bytes = input.readNBytes((int) limit + 1); }
-        if (bytes.length > limit) throw tooLarge();
+        // Memoria acotada: contar los bytes reales y conservar solo firma y cola.
+        byte[] header = new byte[8];
+        byte[] tail = new byte[1024];
+        byte[] buffer = new byte[8192];
+        long size = 0;
+        int tailLength = 0;
+        try (var input = file.getInputStream()) {
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                if (size + count > limit) throw tooLarge();
+                if (size < header.length) {
+                    System.arraycopy(buffer, 0, header, (int) size, Math.min(count, header.length - (int) size));
+                }
+                if (count >= tail.length) {
+                    System.arraycopy(buffer, count - tail.length, tail, 0, tail.length);
+                    tailLength = tail.length;
+                } else {
+                    int retained = Math.min(tailLength, tail.length - count);
+                    System.arraycopy(tail, tailLength - retained, tail, 0, retained);
+                    System.arraycopy(buffer, 0, tail, retained, count);
+                    tailLength = retained + count;
+                }
+                size += count;
+            }
+        }
         boolean valid = switch (type) {
-            case "application/pdf" -> starts(bytes, "%PDF-".getBytes(StandardCharsets.US_ASCII))
-                    && new String(bytes, Math.max(0, bytes.length - 1024), Math.min(bytes.length, 1024),
-                        StandardCharsets.ISO_8859_1).contains("%%EOF");
-            case "image/jpeg" -> bytes.length > 4 && starts(bytes, new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff})
-                    && bytes[bytes.length - 2] == (byte) 0xff && bytes[bytes.length - 1] == (byte) 0xd9;
-            case "image/png" -> bytes.length >= 33 && starts(bytes,
+            case "application/pdf" -> starts(header, "%PDF-".getBytes(StandardCharsets.US_ASCII))
+                    && new String(tail, 0, tailLength, StandardCharsets.ISO_8859_1).contains("%%EOF");
+            case "image/jpeg" -> size > 4 && starts(header, new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff})
+                    && tail[tailLength - 2] == (byte) 0xff && tail[tailLength - 1] == (byte) 0xd9;
+            case "image/png" -> size >= 33 && starts(header,
                     new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10});
             default -> false;
         };
         if (!valid) throw invalid("El contenido no corresponde a un archivo PDF, JPG o PNG válido.");
-        return new Validated(name, type, bytes);
+        return new Validated(name, type, size);
     }
 
     private boolean starts(byte[] bytes, byte[] signature) {

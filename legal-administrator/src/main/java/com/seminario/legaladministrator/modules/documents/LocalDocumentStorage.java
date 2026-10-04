@@ -1,11 +1,19 @@
 package com.seminario.legaladministrator.modules.documents;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.*;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermissions;
 
 @Component
 public class LocalDocumentStorage implements DocumentStorage {
+    private static final Logger log = LoggerFactory.getLogger(LocalDocumentStorage.class);
+    private static final String DIRECTORY_PERMISSIONS = "rwx------";
+    private static final String FILE_PERMISSIONS = "rw-------";
     private final Path root;
 
     public LocalDocumentStorage(DocumentProperties properties) {
@@ -22,16 +30,49 @@ public class LocalDocumentStorage implements DocumentStorage {
         return path;
     }
 
-    public void put(String key, byte[] content, String contentType) throws IOException {
-        Files.createDirectories(root);
+    public void put(String key, InputStream content, String contentType) throws IOException {
+        if (Files.isSymbolicLink(root)) throw new IOException("El directorio de documentos no puede ser un enlace simbólico.");
+        prepareRoot();
         Path path = resolve(key);
-        try (var output = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            try {
-                output.write(content);
-            } catch (IOException error) {
-                Files.deleteIfExists(path);
-                throw error;
-            }
+        // Crear el archivo falla si la clave ya existe: nunca se sobrescribe un documento previo.
+        try { Files.createFile(path, attributes(FILE_PERMISSIONS)); }
+        catch (UnsupportedOperationException error) { createWithoutAttributes(path); }
+        try (var output = Files.newOutputStream(path, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+            content.transferTo(output);
+        } catch (IOException | RuntimeException error) {
+            try { Files.deleteIfExists(path); }
+            catch (IOException cleanupError) { error.addSuppressed(cleanupError); }
+            throw error;
+        }
+    }
+
+    private void prepareRoot() throws IOException {
+        if (Files.isDirectory(root)) { restrict(root, DIRECTORY_PERMISSIONS); return; }
+        try { Files.createDirectories(root, attributes(DIRECTORY_PERMISSIONS)); }
+        catch (UnsupportedOperationException error) { Files.createDirectories(root); }
+        restrict(root, DIRECTORY_PERMISSIONS);
+    }
+
+    private void createWithoutAttributes(Path path) throws IOException {
+        log.warn("El sistema de archivos no admite permisos POSIX; se usan los permisos del proceso.");
+        Files.createFile(path);
+    }
+
+    private FileAttribute<?>[] attributes(String permissions) {
+        if (!root.getFileSystem().supportedFileAttributeViews().contains("posix")) return new FileAttribute<?>[0];
+        return new FileAttribute<?>[]{PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(permissions))};
+    }
+
+    /**
+     * Restringe el acceso al propietario. Un directorio montado con otro propietario no
+     * debe inutilizar la carga: se avisa y se continúa con los permisos existentes.
+     */
+    private void restrict(Path path, String permissions) {
+        if (!path.getFileSystem().supportedFileAttributeViews().contains("posix")) return;
+        try { Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(permissions)); }
+        catch (IOException | UnsupportedOperationException error) {
+            log.warn("No se pudieron aplicar permisos {} al almacenamiento de documentos: {}",
+                    permissions, error.getMessage());
         }
     }
 
