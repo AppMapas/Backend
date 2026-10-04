@@ -57,6 +57,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/clients", "/api/v1/clients/**",
                                 "/api/v1/legal-processes", "/api/v1/legal-processes/**", "/api/v1/catalogs/**")
                             .hasAnyAuthority("Administrador", "Abogada")
+                        .requestMatchers("/api/v1/process-types/*/stages")
+                            .hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/register").hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.POST, "/api/v1/requirements", "/api/v1/process-types")

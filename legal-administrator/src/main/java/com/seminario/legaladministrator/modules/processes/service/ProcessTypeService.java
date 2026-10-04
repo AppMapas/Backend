@@ -30,6 +30,7 @@ public class ProcessTypeService {
     private final ProcessTypeRepository processTypeRepository;
     private final ProcessTypeRequirementRepository linkRepository;
     private final RequirementRepository requirementRepository;
+    private final StageConfigurationService stageConfiguration;
 
     @Transactional(readOnly = true)
     public List<ProcessTypeSummaryResponse> list() {
@@ -112,6 +113,7 @@ public class ProcessTypeService {
                         "No se puede publicar un trámite que contiene requisitos inactivos.");
             }
         }
+        stageConfiguration.requireConfigured(id);
 
         if (processType.getStatus() != ProcessTypeStatus.PUBLISHED) {
             processType.setStatus(ProcessTypeStatus.PUBLISHED);

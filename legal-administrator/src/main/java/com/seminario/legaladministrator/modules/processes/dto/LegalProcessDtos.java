@@ -27,9 +27,11 @@ public final class LegalProcessDtos {
     public record Summary(Long id, String caseCode, String clientDpi, String clientName,
                           Long processTypeId, String processTypeName, Long processTypeVersion,
                           String currentStatus, boolean active, String assignedUserDpi,
-                          Instant openedAt, Instant modifiedAt, Long version, String generalDetails) { }
+                          Instant openedAt, Instant modifiedAt, Long version, String generalDetails,
+                          Long currentStageId, String currentStageCode, String currentStageName) { }
     public record RequirementResponse(Long id, String name, String description, String instructions,
                                       boolean required, boolean requiresDocument, int displayOrder, String status) { }
-    public record Detail(Summary caseData, List<RequirementResponse> requirements) { }
+    public record Detail(Summary caseData, List<RequirementResponse> requirements,
+                         StageDtos.Timeline timeline) { }
     public record Creation(Detail detail, boolean replayed) { }
 }

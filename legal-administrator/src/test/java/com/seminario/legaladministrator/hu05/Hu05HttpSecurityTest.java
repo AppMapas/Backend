@@ -3,8 +3,11 @@ package com.seminario.legaladministrator.hu05;
 import com.seminario.legaladministrator.config.exceptions.GlobalExceptionHandler;
 import com.seminario.legaladministrator.config.security.*;
 import com.seminario.legaladministrator.modules.processes.controller.LegalProcessController;
+import com.seminario.legaladministrator.modules.processes.controller.StageConfigurationController;
 import com.seminario.legaladministrator.modules.processes.dto.LegalProcessDtos.*;
 import com.seminario.legaladministrator.modules.processes.service.LegalProcessService;
+import com.seminario.legaladministrator.modules.processes.service.StageWorkflowService;
+import com.seminario.legaladministrator.modules.processes.service.StageConfigurationService;
 import com.seminario.legaladministrator.modules.users.controller.ClientUserController;
 import com.seminario.legaladministrator.modules.users.service.ClientUserService;
 import org.junit.jupiter.api.*;
@@ -34,6 +37,8 @@ class Hu05HttpSecurityTest {
     @Autowired WebApplicationContext context;
     @Autowired ClientUserService clients;
     @Autowired LegalProcessService cases;
+    @Autowired StageWorkflowService stageWorkflow;
+    @Autowired StageConfigurationService stageConfiguration;
     @Autowired JwtProvider jwt;
     @Autowired OfficeAccess officeAccess;
     private MockMvc mvc;
@@ -41,10 +46,12 @@ class Hu05HttpSecurityTest {
     @Configuration
     @EnableWebMvc
     @Import({SecurityConfig.class, JwtFilter.class, ClientUserController.class,
-            LegalProcessController.class, GlobalExceptionHandler.class})
+            LegalProcessController.class, StageConfigurationController.class, GlobalExceptionHandler.class})
     static class HttpConfiguration {
         @Bean ClientUserService clients() { return mock(ClientUserService.class); }
         @Bean LegalProcessService cases() { return mock(LegalProcessService.class); }
+        @Bean StageWorkflowService stageWorkflow() { return mock(StageWorkflowService.class); }
+        @Bean StageConfigurationService stageConfiguration() { return mock(StageConfigurationService.class); }
         @Bean JwtProvider jwt() { return mock(JwtProvider.class); }
         @Bean OfficeAccess officeAccess() { return mock(OfficeAccess.class); }
     }
@@ -53,7 +60,9 @@ class Hu05HttpSecurityTest {
     void prepare() {
         clients = AopTestUtils.getUltimateTargetObject(clients);
         cases = AopTestUtils.getUltimateTargetObject(cases);
-        reset(clients, cases, jwt, officeAccess);
+        stageWorkflow = AopTestUtils.getUltimateTargetObject(stageWorkflow);
+        stageConfiguration = AopTestUtils.getUltimateTargetObject(stageConfiguration);
+        reset(clients, cases, stageWorkflow, stageConfiguration, jwt, officeAccess);
         when(officeAccess.allowed(any())).thenReturn(true);
         mvc = webAppContextSetup(context).apply(springSecurity()).build();
     }
@@ -63,7 +72,10 @@ class Hu05HttpSecurityTest {
         mvc.perform(get("/api/v1/clients/search")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/legal-processes").contentType("application/json").content("{}"))
                 .andExpect(status().isUnauthorized());
-        verifyNoInteractions(clients, cases);
+        mvc.perform(post("/api/v1/legal-processes/1/stage-transitions")
+                .contentType("application/json").content("{}")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/process-types/1/stages")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(clients, cases, stageWorkflow, stageConfiguration);
     }
 
     @Test
@@ -71,7 +83,10 @@ class Hu05HttpSecurityTest {
         var secretary = user("secretaria@system.com").authorities(new SimpleGrantedAuthority("Secretaria"));
         mvc.perform(get("/api/v1/clients").with(secretary)).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/legal-processes/1").with(secretary)).andExpect(status().isForbidden());
-        verifyNoInteractions(clients, cases);
+        mvc.perform(post("/api/v1/legal-processes/1/stage-transitions").with(secretary)
+                .contentType("application/json").content("{}")).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/process-types/1/stages").with(secretary)).andExpect(status().isForbidden());
+        verifyNoInteractions(clients, cases, stageWorkflow, stageConfiguration);
     }
 
     @Test
@@ -152,5 +167,42 @@ class Hu05HttpSecurityTest {
                 .andExpect(status().isCreated()).andExpect(header().string("Idempotency-Replayed", "false"));
         mvc.perform(post("/api/v1/legal-processes").with(lawyer).contentType("application/json").content(body))
                 .andExpect(status().isOk()).andExpect(header().string("Idempotency-Replayed", "true"));
+    }
+
+    @Test
+    void stageMoveValidatesBodyAndReturnsReplayHeader() throws Exception {
+        var lawyer = user("abogada@system.com").authorities(new SimpleGrantedAuthority("Abogada"));
+        mvc.perform(post("/api/v1/legal-processes/1/stage-transitions").with(lawyer)
+                .contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(stageWorkflow);
+        String body = """
+                {"requestId":"27d3bb30-53c5-4354-8a80-60f52237c9e8",
+                 "version":0,"targetStageId":11}
+                """;
+        when(stageWorkflow.move(any(), any())).thenReturn(false, true);
+        mvc.perform(post("/api/v1/legal-processes/1/stage-transitions").with(lawyer)
+                .contentType("application/json").content(body))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Idempotency-Replayed", "false"));
+        mvc.perform(post("/api/v1/legal-processes/1/stage-transitions").with(lawyer)
+                .contentType("application/json").content(body))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Idempotency-Replayed", "true"));
+    }
+
+    @Test
+    void stageConfigurationRequiresRoleAndValidRequest() throws Exception {
+        var lawyer = user("abogada@system.com").authorities(new SimpleGrantedAuthority("Abogada"));
+        mvc.perform(put("/api/v1/process-types/1/stages").with(lawyer)
+                .contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(stageConfiguration);
+        mvc.perform(put("/api/v1/process-types/1/stages").with(
+                        user("secretaria@system.com").authorities(new SimpleGrantedAuthority("Secretaria")))
+                .contentType("application/json").content("""
+                        {"version":0,"stages":[],"transitions":[]}
+                        """)).andExpect(status().isForbidden());
+        verifyNoInteractions(stageConfiguration);
     }
 }

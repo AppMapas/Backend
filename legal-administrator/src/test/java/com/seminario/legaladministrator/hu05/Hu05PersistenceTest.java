@@ -6,6 +6,8 @@ import com.seminario.legaladministrator.modules.processes.dto.LegalProcessDtos.*
 import com.seminario.legaladministrator.modules.processes.repository.*;
 import com.seminario.legaladministrator.modules.processes.service.CaseRequestGuard;
 import com.seminario.legaladministrator.modules.processes.service.LegalProcessService;
+import com.seminario.legaladministrator.modules.processes.service.StageWorkflowService;
+import com.seminario.legaladministrator.modules.processes.dto.StageDtos.MoveRequest;
 import com.seminario.legaladministrator.modules.users.dto.ClientUserUpdateDto;
 import com.seminario.legaladministrator.modules.users.repository.ClientUserRepository;
 import com.seminario.legaladministrator.modules.users.service.ClientUserService;
@@ -49,11 +51,12 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.open-in-view=false", "spring.flyway.baseline-on-migrate=false"
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({ClientUserService.class, LegalProcessService.class, OfficeAccess.class,
+@Import({ClientUserService.class, LegalProcessService.class, StageWorkflowService.class, OfficeAccess.class,
         CaseRequestGuard.class, Hu05PersistenceTest.Configuration.class})
 class Hu05PersistenceTest {
     @Autowired ClientUserService clients;
     @Autowired LegalProcessService cases;
+    @Autowired StageWorkflowService stageWorkflow;
     @Autowired ClientUserRepository clientRepository;
     @Autowired ProcessTypeRepository templates;
     @Autowired RequirementRepository requirementRepository;
@@ -111,6 +114,28 @@ class Hu05PersistenceTest {
             link.setDisplayOrder(1);
             link.setInstructions("Presentar copia");
             links.saveAndFlush(link);
+            for (int position = 1; position <= 4; position++) {
+                String[] codes = {"PRESENTADO", "EN_REVISION", "APROBADO", "ENTREGADO"};
+                String[] names = {"Presentado", "En revisión", "Aprobado", "Entregado"};
+                jdbc.update("""
+                        insert into process_type_stage
+                            (process_type_id, code, name, display_order, is_initial, is_terminal)
+                        values (?, ?, ?, ?, ?, ?)
+                        """, template.getId(), codes[position - 1], names[position - 1],
+                        position, position == 1, position == 4);
+            }
+            jdbc.update("""
+                    insert into process_type_stage_transition(process_type_id, from_code, to_code)
+                    values (?, 'PRESENTADO', 'EN_REVISION')
+                    """, template.getId());
+            jdbc.update("""
+                    insert into process_type_stage_transition(process_type_id, from_code, to_code)
+                    values (?, 'EN_REVISION', 'APROBADO')
+                    """, template.getId());
+            jdbc.update("""
+                    insert into process_type_stage_transition(process_type_id, from_code, to_code)
+                    values (?, 'APROBADO', 'ENTREGADO')
+                    """, template.getId());
         });
     }
 
@@ -133,7 +158,30 @@ class Hu05PersistenceTest {
         assertThat(detail.requirements().get(0).name()).isEqualTo(requirement.getName());
         assertThat(detail.requirements().get(0).status()).isEqualTo("PENDING");
         assertThat(detail.requirements().get(0).requiresDocument()).isTrue();
+        assertThat(detail.timeline().currentStage().code()).isEqualTo("PRESENTADO");
+        assertThat(detail.timeline().events()).hasSize(1);
         assertThat(clients.getClientByDpi(dpi).getNationalityId()).isEqualTo(1L);
+    }
+
+    @Test
+    void stageTransitionPersistsHistoryAndReplaysWithoutDuplicate() {
+        var opened = cases.create(newRequest()).detail();
+        Long caseId = opened.caseData().id();
+        Long reviewId = opened.timeline().stages().stream()
+                .filter(stage -> stage.code().equals("EN_REVISION"))
+                .findFirst().orElseThrow().id();
+        UUID key = UUID.randomUUID();
+        var move = new MoveRequest(key, opened.caseData().version(), reviewId, null, "Para revisión");
+
+        assertThat(stageWorkflow.move(caseId, move)).isFalse();
+        assertThat(stageWorkflow.move(caseId, move)).isTrue();
+        var updated = cases.get(caseId);
+        assertThat(updated.timeline().currentStage().code()).isEqualTo("EN_REVISION");
+        assertThat(updated.timeline().events()).hasSize(2);
+        assertThat(updated.caseData().version()).isGreaterThan(opened.caseData().version());
+        assertThat(jdbc.queryForObject(
+                "select count(*) from legal_process_stage_event where legal_process_id = ?", Long.class, caseId))
+                .isEqualTo(2);
     }
 
     @Test

@@ -33,6 +33,7 @@ public class LegalProcessService {
     private final OfficeAccess officeAccess;
     private final CaseRequestGuard requestGuard;
     private final Validator validator;
+    private final StageWorkflowService stageWorkflow;
 
     @Transactional(timeout = 20)
     public Creation create(CreateRequest request) {
@@ -102,6 +103,7 @@ public class LegalProcessService {
         entity = cases.saveAndFlush(entity);
         LegalProcessEntity saved = entity;
         requirements.saveAllAndFlush(links.stream().map(link -> snapshot(saved, link)).toList());
+        stageWorkflow.initializeNew(saved);
         return new Creation(detail(saved), false);
     }
 
@@ -113,7 +115,11 @@ public class LegalProcessService {
     @Transactional
     public Detail update(Long id, UpdateRequest request) {
         validate(request);
-        LegalProcessEntity entity = find(id);
+        if (id == null || id < 1) {
+            throw new OperationException(HttpStatus.BAD_REQUEST, "Identificador no válido.");
+        }
+        LegalProcessEntity entity = cases.findForUpdate(id)
+                .orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Expediente no encontrado."));
         if (!Objects.equals(entity.getVersion(), request.version())) {
             throw new OperationException(HttpStatus.CONFLICT, "El expediente cambió. Recarga su información.");
         }
@@ -197,11 +203,20 @@ public class LegalProcessService {
 
     private Summary summary(LegalProcessEntity entity) {
         var client = entity.getClient();
+        Long stageId = null;
+        String stageCode = null;
+        String stageName = null;
+        if (entity.getCurrentStage() != null) {
+            stageId = entity.getCurrentStage().getId();
+            stageCode = entity.getCurrentStage().getCode();
+            stageName = entity.getCurrentStage().getNameSnapshot();
+        }
         return new Summary(entity.getId(), entity.getCaseCode(), client.getDpi(),
                 client.getFirstName() + " " + client.getLastName(), entity.getProcessType().getId(),
                 entity.getProcessTypeNameSnapshot(), entity.getProcessTypeVersionSnapshot(),
                 entity.getCurrentStatus(), entity.isActive(), entity.getAssignedUser().getDpi(),
-                entity.getOpenedAt(), entity.getModifiedAt(), entity.getVersion(), entity.getGeneralDetails());
+                entity.getOpenedAt(), entity.getModifiedAt(), entity.getVersion(), entity.getGeneralDetails(),
+                stageId, stageCode, stageName);
     }
 
     private Detail detail(LegalProcessEntity entity) {
@@ -209,6 +224,6 @@ public class LegalProcessService {
                 .map(r -> new RequirementResponse(r.getId(), r.getNameSnapshot(), r.getDescriptionSnapshot(),
                         r.getInstructionsSnapshot(), r.isRequiredSnapshot(), r.isRequiresDocumentSnapshot(),
                         r.getDisplayOrder(), r.getStatus())).toList();
-        return new Detail(summary(entity), items);
+        return new Detail(summary(entity), items, stageWorkflow.timeline(entity));
     }
 }

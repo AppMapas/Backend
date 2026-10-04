@@ -64,6 +64,16 @@ class Hu05MigrationTest {
                     assertThat(result.next()).isTrue();
                     assertThat(result.getString(1)).isEqualTo("EXP-901");
                 }
+                try (var result = sql.executeQuery("""
+                        select count(*) from process_type_stage where process_type_id = 900
+                        """)) {
+                    assertThat(result.next()).isTrue();
+                    assertThat(result.getLong(1)).isEqualTo(4);
+                }
+                try (var result = sql.executeQuery("select current_stage_id from legal_process where case_code = 'EXP-900'")) {
+                    assertThat(result.next()).isTrue();
+                    assertThat(result.getObject(1)).isNull();
+                }
                 assertThatThrownBy(() -> sql.execute("""
                         insert into client_user(dpi, first_name, last_name, email, phone, created_at)
                         values('bad-dpi', 'Ana', 'Pérez', 'ana@example.test', '55551234', current_date)

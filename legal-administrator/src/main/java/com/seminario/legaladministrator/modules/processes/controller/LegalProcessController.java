@@ -2,6 +2,8 @@ package com.seminario.legaladministrator.modules.processes.controller;
 
 import com.seminario.legaladministrator.modules.processes.dto.LegalProcessDtos.*;
 import com.seminario.legaladministrator.modules.processes.service.LegalProcessService;
+import com.seminario.legaladministrator.modules.processes.service.StageWorkflowService;
+import com.seminario.legaladministrator.modules.processes.dto.StageDtos.MoveRequest;
 import com.seminario.legaladministrator.shared.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,14 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class LegalProcessController {
     private final LegalProcessService service;
+    private final StageWorkflowService stageWorkflow;
+
+    @PostMapping("/{id}/stage-transitions")
+    public ResponseEntity<Detail> moveStage(@PathVariable Long id, @Valid @RequestBody MoveRequest request) {
+        boolean replayed = stageWorkflow.move(id, request);
+        return ResponseEntity.ok().header("Idempotency-Replayed", Boolean.toString(replayed))
+                .body(service.get(id));
+    }
 
     @PostMapping
     public ResponseEntity<Detail> create(@Valid @RequestBody CreateRequest request) {

@@ -27,6 +27,9 @@ public class LegalProcessEntity {
     private ProcessTypeEntity processType;
     @Column(name = "current_status", nullable = false, length = 50)
     private String currentStatus = "OPEN";
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "current_stage_id")
+    private LegalProcessStageEntity currentStage;
     @Column(name = "general_details", columnDefinition = "text")
     private String generalDetails;
     @Column(name = "created_at", nullable = false)

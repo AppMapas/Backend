@@ -38,12 +38,15 @@ class ProcessTypeServiceTest {
     private ProcessTypeRequirementRepository linkRepository;
     @Mock
     private RequirementRepository requirementRepository;
+    @Mock
+    private StageConfigurationService stageConfiguration;
 
     private ProcessTypeService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProcessTypeService(processTypeRepository, linkRepository, requirementRepository);
+        service = new ProcessTypeService(processTypeRepository, linkRepository,
+                requirementRepository, stageConfiguration);
     }
 
     @Test
