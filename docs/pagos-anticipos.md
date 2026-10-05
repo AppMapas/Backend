@@ -1,7 +1,7 @@
 # Pagos y anticipos por expediente (HU-08)
 
-Subtarea entregada: **modelo de datos**. No hay endpoints ni frontend todavía;
-el contrato HTTP se definirá en la subtarea del endpoint de registro.
+Subtareas entregadas: **modelo de datos** y **endpoints**. El frontend del resumen
+financiero y del formulario de abono todavía no existe.
 
 ## Uso previsto
 
@@ -9,6 +9,74 @@ Como abogada, registrar en **Expedientes → detalle → Pagos** un anticipo o a
 (por ejemplo el 50% inicial) con su monto, tipo, forma de pago, concepto y fecha.
 El resumen financiero del expediente muestra costo total, anticipos y saldo
 pendiente desde cualquier dispositivo.
+
+## Endpoints
+
+Todos cuelgan de `/api/v1/legal-processes` y exigen rol `Abogada` o
+`Administrador` con acceso de oficina vigente, igual que el resto del expediente.
+Sin token → `401`; con otro rol → `403`, y en ambos casos el servicio ni se invoca.
+
+### `GET /{caseId}/payments`
+
+Devuelve el **resumen y la lista en una sola respuesta**:
+
+```json
+{
+  "totalAmount": 10000.00, "paidAmount": 6500.50, "advancesAmount": 5000.00,
+  "pendingAmount": 3499.50, "totalAgreed": true, "settled": false,
+  "overpaid": false, "caseVersion": 3, "caseActive": true,
+  "payments": [{
+    "id": "6f1c…", "amount": 1500.50, "paymentType": "ABONO",
+    "paymentMethod": "TRANSFERENCIA", "concept": "Abono",
+    "paymentDate": "2026-10-04", "reference": null, "active": true,
+    "registeredBy": "3002234560901", "registeredAt": "2026-10-04T17:49:52Z"
+  }]
+}
+```
+
+- `pendingAmount` va en `null` mientras no haya costo pactado; el frontend debe
+  mostrar "sin costo pactado", nunca un pendiente de `Q 0.00`.
+- `advancesAmount` solo cuenta los abonos de tipo `ANTICIPO`, para poder decir
+  "50% inicial" sin leer la lista.
+- `overpaid` es `true` cuando lo abonado supera el costo pactado.
+- `caseVersion` es el que necesita el frontend para el `PUT` siguiente.
+- La lista incluye los abonos anulados con `active: false`, tachados en pantalla.
+
+`404` si el expediente no existe. Un expediente inactivo sí se puede **leer**.
+
+### `POST /{caseId}/payments`
+
+```json
+{"requestId": "uuid", "amount": 5000.00, "paymentType": "ANTICIPO",
+ "paymentMethod": "EFECTIVO", "concept": "50% inicial",
+ "paymentDate": "2026-10-04", "reference": "recibo 1"}
+```
+
+Responde `201` con el resumen actualizado, o `200` con la cabecera
+`Idempotency-Replayed: true` si esa clave ya tenía ese mismo abono (doble toque).
+Devuelve el resumen y no solo el abono creado, para que la pantalla actualice
+cifras y lista con una sola respuesta.
+
+| Regla | Respuesta |
+| --- | --- |
+| Monto `0`, negativo, con 3 decimales o > 12 dígitos enteros | `400` nombrando el campo en `details.amount` |
+| `concept` vacío o fecha futura | `400` en `details.concept` / `details.paymentDate` |
+| Clave reusada con otro monto u otra abogada | `409` |
+| Expediente inactivo | `409` |
+
+### `PUT /{caseId}/total-amount`
+
+`{"version": 3, "totalAmount": 10000.00}` fija el costo pactado. `totalAmount` en
+`null` devuelve el expediente al estado "no pactado". `version` es el
+`caseVersion` recibido en el `GET`; si alguien más editó el expediente, responde
+`409` en lugar de pisar su cambio. También incrementa la versión.
+
+### `DELETE /{caseId}/payments/{paymentId}`
+
+**Anula**, no borra: la fila queda con `active = false` para que el historial
+siga auditable, y el saldo pendiente vuelve a incluir ese dinero. Repetir la
+anulación responde `409 "El abono ya está anulado."`. Un abono de otro
+expediente responde `404`.
 
 ## Modelo
 
@@ -48,10 +116,18 @@ Un abono registrado. Flyway aplica `V9__create_case_payments.sql` al iniciar.
 
 - **`numeric(14,2)` y `BigDecimal`, nunca `double`.** El saldo se deriva sumando
   abonos; con punto flotante `0.10 + 0.20` da `0.30000000000000004` y el saldo
-  no cuadra. Las pruebas lo verifican contra PostgreSQL real.
-- **El saldo pendiente no se guarda.** Se deriva como
-  `total_amount - CasePaymentRepository.sumActiveAmount(caseId)`. Una columna de
-  saldo se desincroniza en cuanto se anula un abono.
+  no cuadra. Las pruebas lo verifican contra PostgreSQL real, y por HTTP un
+  `1500.5` recibido queda guardado y devuelto como `1500.50`.
+- **El saldo pendiente no se guarda.** Se deriva de los abonos vigentes en cada
+  lectura. Una columna de saldo se desincroniza en cuanto se anula un abono.
+- **El resumen sale de una sola consulta.** El total, los anticipos y el pendiente
+  se calculan en Java recorriendo la lista que ya se devuelve, en vez de lanzar
+  un `SUM` aparte. Así las cifras y las filas que las originan no pueden
+  discrepar por una lectura intermedia.
+- **Sobrepago no se bloquea, se muestra.** Si lo abonado supera el costo pactado,
+  `pendingAmount` sale negativo y `overpaid` en `true`: saldo a favor del cliente.
+  Bloquearlo impediría registrar un pago que de verdad se recibió, y el error de
+  tipeo (15000 en vez de 1500) se detecta a la vista, en el resumen.
 - **El cliente no se duplica en el abono.** Se hereda del expediente. La tabla
   heredada `payment_schedule` de `V1` sí guardaba `dpi_client`, lo que permitía
   asociar un pago a un cliente distinto del del trámite.
@@ -99,17 +175,19 @@ Mientras tanto quedan inertes.
 mvn test
 ```
 
-Las pruebas unitarias (`CasePaymentEntityTest`) cubren los invariantes del monto,
-la aritmética exacta frente a `double` y la coherencia enum ↔ restricciones.
+Las pruebas unitarias (`CasePaymentEntityTest`, `CasePaymentServiceTest`,
+`CasePaymentHttpTest`) cubren los invariantes del monto, la aritmética del saldo
+hasta los centavos, la idempotencia, la anulación y el contrato HTTP (quién
+puede llamar qué y qué se rechaza con `400` nombrando el campo).
 
-Para comprobar la migración, las restricciones y la persistencia reales contra
-una base PostgreSQL **desechable** llamada `hu08_test`:
+Para comprobar la migración, las restricciones, la persistencia y el flujo
+completo contra una base PostgreSQL **desechable** llamada `hu08_test`:
 
 ```sh
 mvn test -Dhu08.integration=true \
   -Dhu08.test.url=jdbc:postgresql://127.0.0.1:55438/hu08_test \
   -Dhu08.test.user=USUARIO \
-  -Dtest=Hu08MigrationTest,Hu08PersistenceTest
+  -Dtest=Hu08MigrationTest,Hu08PersistenceTest,Hu08LedgerTest
 ```
 
 `Hu08MigrationTest` comprueba que un expediente anterior a V9 sobrevive con
@@ -117,14 +195,16 @@ mvn test -Dhu08.integration=true \
 conceptos vacíos, tipos fuera de catálogo, fechas futuras, claves de idempotencia
 inconsistentes y costos totales negativos. `Hu08PersistenceTest` comprueba el
 ida y vuelta exacto de los montos (`ddl-auto=validate` valida el mapeo entidad ↔
-esquema al cargar el contexto), la suma de abonos vigentes, el orden del listado
-y que un abono de otro expediente no sea alcanzable.
+esquema al cargar el contexto) y que un abono de otro expediente no sea
+alcanzable. `Hu08LedgerTest` es la prueba del criterio de aceptación: registra
+abonos por el servicio y verifica el pendiente derivado (incluido que no viva en
+ninguna columna), el doble toque con la misma clave, la anulación, el bloqueo por
+rol y el respaldo de la restricción única ante un doble cobro.
 
 ## Lo que falta (próximas subtareas)
 
-- Endpoint para registrar, listar y anular abonos, y para leer/escribir
-  `total_amount`, con validación de `@Digits(fraction = 2)` en el DTO.
-- Rechazo de abonos que superen el saldo pactado: es una regla de servicio,
-  porque necesita el agregado de los abonos vigentes.
-- Exponer el saldo pendiente. Se calcula en el servicio, no se almacena.
-- Frontend del resumen financiero y del formulario de abono.
+- Frontend: resumen financiero (costo total, anticipos, pendientes) y formulario
+  de abono, con la clave `requestId` generada en el cliente para que un doble
+  toque no cobre dos veces.
+- Decidir qué hacer con `expense_record` / `income_record` / `payment_category`
+  de `V1`: convertirlas en un módulo de gastos e ingresos, o eliminarlas.

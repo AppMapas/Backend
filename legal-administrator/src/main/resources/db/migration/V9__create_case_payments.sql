@@ -10,7 +10,7 @@
 --  * El saldo pendiente NO se guarda. Se deriva como
 --    total_amount - SUM(amount) sobre abonos vigentes; almacenarlo se desincroniza.
 --  * No se duplica el cliente: se hereda del expediente, evitando pagos
---    asociados a un cliente distinto del del trámite.
+--    asociados a un cliente distinto del trámite.
 
 -- NULL significa "el costo total todavía no está pactado", que es distinto de
 -- un total de cero. El resumen financiero debe diferenciar ambos casos.

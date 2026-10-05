@@ -72,7 +72,6 @@ class Hu08PersistenceTest {
 
         var stored = payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(caseId);
         assertThat(stored).hasSize(2);
-        // isEqualTo compararía BigDecimal("1500.50") con BigDecimal("1500.5") como distintos.
         assertThat(stored).extracting(CasePaymentEntity::getAmount)
                 .containsExactly(new BigDecimal("250.25"), new BigDecimal("1500.50"));
         assertThat(stored).extracting(CasePaymentEntity::getAmount)
@@ -80,7 +79,7 @@ class Hu08PersistenceTest {
     }
 
     @Test
-    void sumOfActivePaymentsIsExactAndSkipsAnnulledOnes() {
+    void activePaymentsKeepTheirExactValueWhileAnnulledOnesStayVisible() {
         long caseId = newCase(new BigDecimal("10000.00"));
         payment(caseId, "0.10", PaymentType.ANTICIPO, TODAY.minusDays(30));
         payment(caseId, "0.20", PaymentType.ABONO, TODAY.minusDays(20));
@@ -92,16 +91,22 @@ class Hu08PersistenceTest {
         entityManager.flush();
         entityManager.clear();
 
-        // Con double, 0.10 + 0.20 + 1000.00 no daría 1000.30 exacto.
-        assertThat(payments.sumActiveAmount(caseId)).isEqualByComparingTo("1000.30");
-        // El saldo derivado no se guarda en ninguna columna: se calcula aquí.
-        assertThat(payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(caseId)).hasSize(4);
+        var visible = payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(caseId);
+        assertThat(visible).hasSize(4);
+        assertThat(visible).filteredOn(CasePaymentEntity::isActive)
+                .extracting(CasePaymentEntity::getAmount)
+                .containsExactly(new BigDecimal("1000.00"), new BigDecimal("0.20"), new BigDecimal("0.10"));
+        assertThat(visible).filteredOn(entity -> !entity.isActive())
+                .extracting(CasePaymentEntity::getAmount)
+                .containsExactly(new BigDecimal("500.00"));
+        assertThat(cases.findById(caseId).orElseThrow().getTotalAmount())
+                .isEqualByComparingTo("10000.00");
     }
 
     @Test
-    void aCaseWithoutPaymentsReportsZeroRatherThanNull() {
+    void aCaseWithoutPaymentsHasNoRowsToSummarize() {
         long caseId = newCase(null);
-        assertThat(payments.sumActiveAmount(caseId)).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(caseId)).isEmpty();
         assertThat(payments.findByLegalProcessIdAndActiveTrueOrderByPaymentDateDescIdDesc(caseId)).isEmpty();
     }
 
@@ -131,8 +136,7 @@ class Hu08PersistenceTest {
                 .isInstanceOf(OperationException.class)
                 .hasMessageContaining("2 decimales");
 
-        // La transacción se deshizo: el saldo sigue intacto.
-        assertThat(payments.sumActiveAmount(caseId)).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(caseId)).isEmpty();
     }
 
     @Test

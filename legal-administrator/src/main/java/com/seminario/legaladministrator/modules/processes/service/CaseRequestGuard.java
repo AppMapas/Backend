@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -33,24 +34,36 @@ public class CaseRequestGuard {
     }
 
     public String fingerprint(CreateRequest request) {
-        StringBuilder canonical = new StringBuilder();
-        append(canonical, request.clientDpi());
-        append(canonical, request.processTypeId());
-        append(canonical, request.processTypeVersion());
-        append(canonical, InputRules.text(request.generalDetails()));
+        var values = new java.util.ArrayList<Object>();
+        values.add(request.clientDpi());
+        values.add(request.processTypeId());
+        values.add(request.processTypeVersion());
+        values.add(InputRules.text(request.generalDetails()));
         if (request.client() != null) {
             var c = request.client();
-            append(canonical, c.getDpi());
-            append(canonical, InputRules.text(c.getFirstName()));
-            append(canonical, InputRules.text(c.getLastName()));
-            append(canonical, InputRules.text(c.getEmail()));
-            append(canonical, c.getPhone());
-            append(canonical, c.getBirthDate());
-            append(canonical, c.getMaritalStatusId());
-            append(canonical, c.getNationalityId());
-            append(canonical, InputRules.text(c.getOccupation()));
-            append(canonical, InputRules.text(c.getExactAddress()));
-            append(canonical, c.getMunicipalityId());
+            values.add(c.getDpi());
+            values.add(InputRules.text(c.getFirstName()));
+            values.add(InputRules.text(c.getLastName()));
+            values.add(InputRules.text(c.getEmail()));
+            values.add(c.getPhone());
+            values.add(c.getBirthDate());
+            values.add(c.getMaritalStatusId());
+            values.add(c.getNationalityId());
+            values.add(InputRules.text(c.getOccupation()));
+            values.add(InputRules.text(c.getExactAddress()));
+            values.add(c.getMunicipalityId());
+        }
+        return fingerprint(values);
+    }
+
+    /**
+     * Huella de una carga arbitraria de valores ya normalizados. Cada valor se
+     * antepone con su longitud, para que "1" + "23" no sea ambiguo con "12" + "3".
+     */
+    public String fingerprint(List<Object> values) {
+        StringBuilder canonical = new StringBuilder();
+        for (Object value : values) {
+            append(canonical, value);
         }
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
