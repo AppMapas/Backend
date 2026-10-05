@@ -33,6 +33,11 @@ public class CaseRequestGuard {
         jdbc.queryForObject("select pg_advisory_xact_lock(?)", (rs, row) -> Boolean.TRUE, key);
     }
 
+    public boolean identifiesExpense(UUID requestId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject(
+                "select exists(select 1 from expense_record where request_id = ?)", Boolean.class, requestId));
+    }
+
     public String fingerprint(CreateRequest request) {
         var values = new java.util.ArrayList<Object>();
         values.add(request.clientDpi());

@@ -13,6 +13,9 @@ public interface LegalProcessRepository extends JpaRepository<LegalProcessEntity
     Optional<LegalProcessEntity> findByRequestId(UUID requestId);
     @EntityGraph(attributePaths = {"client", "assignedUser", "processType"})
     Optional<LegalProcessEntity> findById(Long id);
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from LegalProcessEntity p where p.id = :id")
+    Optional<LegalProcessEntity> findForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
     @Override
     @EntityGraph(attributePaths = {"client", "assignedUser", "processType"})
     Page<LegalProcessEntity> findAll(org.springframework.data.jpa.domain.Specification<LegalProcessEntity> criteria,

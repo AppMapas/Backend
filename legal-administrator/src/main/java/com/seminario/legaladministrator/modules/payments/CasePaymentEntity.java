@@ -59,6 +59,9 @@ public class CasePaymentEntity {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name = "annulled_at") private Instant annulledAt;
+    @Column(name = "annulled_by", length = 15) private String annulledBy;
+    @Column(name = "annul_reason", length = 500) private String annulReason;
 
     @PrePersist
     void beforeInsert() {
