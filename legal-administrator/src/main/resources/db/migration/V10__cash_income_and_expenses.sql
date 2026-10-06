@@ -1,5 +1,3 @@
--- Caja utiliza case_payment como única fuente de cobros por expedientes.
--- Las tablas heredadas nunca se suman automáticamente: podrían duplicar abonos.
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM expense_record) OR EXISTS (SELECT 1 FROM income_record) THEN
         RAISE EXCEPTION 'H09: concilia expense_record e income_record heredados antes de habilitar Caja. No se convertirán ni duplicarán importes automáticamente.';
@@ -51,7 +49,6 @@ ALTER TABLE expense_record ADD CONSTRAINT ck_expense_hash CHECK (request_hash ~ 
 CREATE INDEX ix_expense_date ON expense_record(expense_date DESC, id DESC);
 CREATE INDEX ix_expense_owner_date ON expense_record(owner_dpi, expense_date DESC);
 
--- Anulaciones anteriores conservan sus datos; no se inventa quién ni cuándo.
 ALTER TABLE case_payment ADD COLUMN annulled_at timestamptz;
 ALTER TABLE case_payment ADD COLUMN annulled_by varchar(15) REFERENCES user_system(dpi);
 ALTER TABLE case_payment ADD COLUMN annul_reason varchar(500);
