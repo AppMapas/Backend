@@ -88,6 +88,9 @@ class Hu08PersistenceTest {
 
         var annulled = payment(caseId, "500.00", PaymentType.ABONO, TODAY);
         annulled.setActive(false);
+        annulled.setAnnulledAt(java.time.Instant.now());
+        annulled.setAnnulledBy(ABOGADA);
+        annulled.setAnnulReason("Corrección de registro de prueba");
         entityManager.flush();
         entityManager.clear();
 
@@ -118,6 +121,9 @@ class Hu08PersistenceTest {
         payment(caseId, "200.00", PaymentType.ABONO, TODAY);
         var annulled = payment(caseId, "999.00", PaymentType.ABONO, TODAY);
         annulled.setActive(false);
+        annulled.setAnnulledAt(java.time.Instant.now());
+        annulled.setAnnulledBy(ABOGADA);
+        annulled.setAnnulReason("Corrección de registro de prueba");
         entityManager.flush();
 
         assertThat(payments.findByLegalProcessIdAndActiveTrueOrderByPaymentDateDescIdDesc(caseId))

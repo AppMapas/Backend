@@ -48,6 +48,7 @@ class CasePaymentServiceTest {
         legalCase.setTotalAmount(new BigDecimal("10000.00"));
         when(officeAccess.current()).thenReturn(operator(ABOGADA));
         when(cases.findById(1L)).thenReturn(Optional.of(legalCase));
+        when(cases.findForUpdate(1L)).thenReturn(Optional.of(legalCase));
         when(payments.findByLegalProcessIdOrderByPaymentDateDescIdDesc(1L))
                 .thenAnswer(call -> new ArrayList<>(stored));
         when(payments.findByRequestId(any())).thenReturn(Optional.empty());

@@ -50,7 +50,6 @@ public class CasePaymentService {
     public Creation register(Long caseId, CreatePaymentRequest request) {
         validate(request);
         var operator = officeAccess.current();
-        var legalCase = requireActiveCase(caseId);
         String fingerprint = fingerprint(caseId, request);
         // Bloquea solo esta clave: dos toques simultáneos no crean dos abonos.
         requestGuard.lock(request.requestId());
@@ -62,8 +61,13 @@ public class CasePaymentService {
                 throw new OperationException(HttpStatus.CONFLICT,
                         "La clave de solicitud ya se utilizó. Reutilízala únicamente para reintentar el mismo abono.");
             }
-            return new Creation(ledger(legalCase), true);
+            return new Creation(ledger(requireCase(caseId)), true);
         }
+
+        if (requestGuard.identifiesExpense(request.requestId())) {
+            throw new OperationException(HttpStatus.CONFLICT, "La solicitud ya identifica un gasto.");
+        }
+        var legalCase = requireActiveCase(caseId);
 
         var entity = new CasePaymentEntity();
         entity.setId(UUID.randomUUID());
@@ -100,14 +104,35 @@ public class CasePaymentService {
      */
     @Transactional
     public Ledger annul(Long caseId, UUID paymentId) {
-        var legalCase = requireActiveCase(caseId);
+        return annulWithReason(caseId, paymentId, null, "Anulación registrada desde el expediente.", false);
+    }
+
+    @Transactional
+    public Ledger annulFromCash(Long caseId, UUID paymentId, Long version, String reason) {
+        return annulWithReason(caseId, paymentId, version, InputRules.required(reason, 500, "El motivo"), true);
+    }
+
+    private Ledger annulWithReason(Long caseId, UUID paymentId, Long version, String reason, boolean replayable) {
+        var legalCase = lockCase(caseId);
+        var operator = officeAccess.current();
         var entity = payments.findByIdAndLegalProcessId(paymentId, caseId)
                 .orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND,
                         "El abono no existe en este expediente."));
         if (!entity.isActive()) {
+            if (replayable && Objects.equals(reason, entity.getAnnulReason())
+                    && Objects.equals(operator.getDpi(), entity.getAnnulledBy())) return ledger(legalCase);
             throw new OperationException(HttpStatus.CONFLICT, "El abono ya está anulado.");
         }
+        if (!legalCase.isActive()) {
+            throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
+        }
+        if (version != null && !Objects.equals(version, legalCase.getVersion())) {
+            throw new OperationException(HttpStatus.CONFLICT, "El expediente cambió. Recarga su información.");
+        }
         entity.setActive(false);
+        entity.setAnnulledAt(java.time.Instant.now());
+        entity.setAnnulledBy(operator.getDpi());
+        entity.setAnnulReason(reason);
         payments.saveAndFlush(entity);
         return ledger(legalCase);
     }
@@ -177,10 +202,17 @@ public class CasePaymentService {
     }
 
     private LegalProcessEntity requireActiveCase(Long id) {
-        var legalCase = requireCase(id);
+        var legalCase = lockCase(id);
         if (!legalCase.isActive()) {
             throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
         }
+        return legalCase;
+    }
+
+    private LegalProcessEntity lockCase(Long id) {
+        if (id == null || id < 1) throw new OperationException(HttpStatus.BAD_REQUEST, "Identificador no válido.");
+        var legalCase = cases.findForUpdate(id).orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND,
+                "Expediente no encontrado."));
         return legalCase;
     }
 }
