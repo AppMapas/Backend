@@ -54,7 +54,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
                         // 3. Rutas específicas protegidas por roles
-                        .requestMatchers("/api/v1/cash", "/api/v1/cash/**", "/api/v1/clients", "/api/v1/clients/**",
+                        .requestMatchers("/api/v1/agenda", "/api/v1/agenda/**", "/api/v1/cash", "/api/v1/cash/**", "/api/v1/clients", "/api/v1/clients/**",
                                 "/api/v1/legal-processes", "/api/v1/legal-processes/**", "/api/v1/catalogs/**")
                             .hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/register").hasAnyAuthority("Administrador", "Abogada")
