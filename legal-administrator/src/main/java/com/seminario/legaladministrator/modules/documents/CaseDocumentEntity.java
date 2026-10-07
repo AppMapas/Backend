@@ -20,6 +20,9 @@ public class CaseDocumentEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "legal_process_requirement_id")
     private LegalProcessRequirementEntity legalProcessRequirement;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "case_payment_id")
+    private com.seminario.legaladministrator.modules.payments.CasePaymentEntity payment;
     @Column(name = "original_name", nullable = false, length = 180)
     private String originalName;
     @Column(name = "content_type", nullable = false, length = 50)

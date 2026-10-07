@@ -22,11 +22,13 @@ class CaseDocumentServiceTest {
     DocumentStorage local = mock(DocumentStorage.class);
     DocumentStorage cloud = mock(DocumentStorage.class);
     DocumentProperties properties = new DocumentProperties();
+    com.seminario.legaladministrator.modules.payments.CasePaymentRepository payments =
+            mock(com.seminario.legaladministrator.modules.payments.CasePaymentRepository.class);
     com.seminario.legaladministrator.modules.processes.repository.LegalProcessRequirementRepository requirements =
             mock(com.seminario.legaladministrator.modules.processes.repository.LegalProcessRequirementRepository.class);
     CaseDocumentService service = new CaseDocumentService(documents, cases, access,
             new DocumentValidator(properties), properties, List.of(local, cloud),
-            requirements);
+            requirements, payments);
     MockMultipartFile file = new MockMultipartFile("file", "DPI.pdf", "application/pdf", "%PDF-1.7\n%%EOF".getBytes());
 
     @BeforeEach void prepare() {
@@ -37,7 +39,12 @@ class CaseDocumentServiceTest {
         role.setName("Administrador");
         operator.setRole(role);
         when(access.current()).thenReturn(operator);
-        when(cases.findById(1L)).thenReturn(Optional.of(new LegalProcessEntity()));
+        var legalCase = new LegalProcessEntity();
+        legalCase.setTotalAmount(new java.math.BigDecimal("100.00"));
+        when(cases.findById(1L)).thenReturn(Optional.of(legalCase));
+        var payment = new com.seminario.legaladministrator.modules.payments.CasePaymentEntity();
+        payment.setAmount(new java.math.BigDecimal("100.00"));
+        when(payments.findByLegalProcessIdAndActiveTrueOrderByPaymentDateDescIdDesc(1L)).thenReturn(List.of(payment));
         TransactionSynchronizationManager.initSynchronization();
     }
     @AfterEach void clear() { TransactionSynchronizationManager.clearSynchronization(); }
@@ -46,6 +53,7 @@ class CaseDocumentServiceTest {
         var legalCase = new LegalProcessEntity();
         legalCase.setId(1L);
         legalCase.setVersion(0L);
+        legalCase.setTotalAmount(new java.math.BigDecimal("100.00"));
         when(cases.findById(1L)).thenReturn(Optional.of(legalCase));
         when(cases.saveAndFlush(legalCase)).thenReturn(legalCase);
         var mandatory = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
@@ -73,6 +81,25 @@ class CaseDocumentServiceTest {
         verify(cases, never()).saveAndFlush(any());
     }
 
+    @Test void caseCompletionRejectsOutstandingBalanceIncludingOneCent() {
+        var payment = new com.seminario.legaladministrator.modules.payments.CasePaymentEntity();
+        payment.setAmount(new java.math.BigDecimal("99.99"));
+        when(payments.findByLegalProcessIdAndActiveTrueOrderByPaymentDateDescIdDesc(1L)).thenReturn(List.of(payment));
+        assertThatThrownBy(() -> service.completeCase(1L)).isInstanceOf(OperationException.class)
+                .hasMessageContaining("pagado al 100%");
+        verify(cases, never()).saveAndFlush(any());
+    }
+
+    @Test void caseCompletionRequiresAgreedPositiveTotal() {
+        var legalCase = new LegalProcessEntity();
+        when(cases.findById(1L)).thenReturn(Optional.of(legalCase));
+        assertThatThrownBy(() -> service.completeCase(1L)).isInstanceOf(OperationException.class)
+                .hasMessageContaining("costo total mayor que cero");
+        legalCase.setTotalAmount(java.math.BigDecimal.ZERO);
+        assertThatThrownBy(() -> service.completeCase(1L)).isInstanceOf(OperationException.class)
+                .hasMessageContaining("costo total mayor que cero");
+    }
+
     @Test void uploadAssociatesDocumentWithTheRequestedRequirement() {
         var legalCase = new LegalProcessEntity();
         legalCase.setId(1L);
@@ -84,6 +111,26 @@ class CaseDocumentServiceTest {
         var captor = ArgumentCaptor.forClass(CaseDocumentEntity.class);
         verify(documents).saveAndFlush(captor.capture());
         assertThat(captor.getValue().getLegalProcessRequirement()).isSameAs(requirement);
+    }
+
+    @Test void receiptIsAssociatedWithPaymentAndRejectsOtherCase() {
+        var requestId = UUID.randomUUID();
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(1L);
+        var payment = new com.seminario.legaladministrator.modules.payments.CasePaymentEntity();
+        payment.setId(UUID.randomUUID());
+        payment.setLegalProcess(legalCase);
+        when(payments.findByRequestId(requestId)).thenReturn(Optional.of(payment));
+        service.uploadReceipt(1L, requestId, file);
+        var captor = ArgumentCaptor.forClass(CaseDocumentEntity.class);
+        verify(documents).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getPayment()).isSameAs(payment);
+        when(documents.findByLegalProcessIdOrderByUploadedAtDesc(1L)).thenReturn(List.of(captor.getValue()));
+        assertThatThrownBy(() -> service.uploadReceipt(1L, requestId, file))
+                .isInstanceOf(OperationException.class).hasMessageContaining("ya tiene un comprobante");
+        legalCase.setId(2L);
+        assertThatThrownBy(() -> service.uploadReceipt(1L, requestId, file))
+                .isInstanceOf(OperationException.class).hasMessageContaining("Abono no encontrado");
     }
 
     @Test void rejectsRequirementFromAnotherCaseBeforeStoringFile() {

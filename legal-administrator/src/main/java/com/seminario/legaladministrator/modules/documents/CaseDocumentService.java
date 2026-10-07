@@ -32,6 +32,7 @@ public class CaseDocumentService {
     private final DocumentProperties properties;
     private final List<DocumentStorage> storages;
     private final LegalProcessRequirementRepository requirements;
+    private final com.seminario.legaladministrator.modules.payments.CasePaymentRepository payments;
 
     public record Summary(UUID id, String name, String contentType, long sizeBytes, Instant uploadedAt) {
         static Summary of(CaseDocumentEntity entity) {
@@ -51,6 +52,16 @@ public class CaseDocumentService {
     public Long completeCase(Long caseId) {
         var legalCase = requireCase(caseId);
         if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
+        var total = legalCase.getTotalAmount();
+        if (total == null || total.signum() <= 0) {
+            throw new OperationException(HttpStatus.CONFLICT, "Define un costo total mayor que cero antes de completar el expediente.");
+        }
+        var paid = payments.findByLegalProcessIdAndActiveTrueOrderByPaymentDateDescIdDesc(caseId).stream()
+                .map(com.seminario.legaladministrator.modules.payments.CasePaymentEntity::getAmount)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        if (paid.compareTo(total) < 0) {
+            throw new OperationException(HttpStatus.CONFLICT, "El expediente debe estar pagado al 100% antes de marcarlo como completado.");
+        }
         var items = requirements.findByLegalProcessIdOrderByDisplayOrderAsc(caseId);
         for (var requirement : items) {
             if (requirement.isRequiredSnapshot() && !"COMPLETED".equals(requirement.getStatus())) {
@@ -129,7 +140,49 @@ public class CaseDocumentService {
         return store(caseId, file, null);
     }
 
+    @Transactional
+    public Summary uploadReceipt(Long caseId, UUID requestId, MultipartFile file) {
+        requireCase(caseId);
+        var payment = payments.findByRequestId(requestId)
+                .filter(p -> caseId.equals(p.getLegalProcess().getId()))
+                .orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Abono no encontrado en este expediente."));
+        if (!receipts(caseId, payment.getId()).isEmpty()) {
+            throw new OperationException(HttpStatus.CONFLICT, "El abono ya tiene un comprobante. Quita el anterior antes de adjuntar otro.");
+        }
+        return store(caseId, file, null, payment);
+    }
+
+    @Transactional
+    public void removeReceipt(Long caseId, UUID paymentId, UUID documentId) {
+        var legalCase = requireCase(caseId);
+        if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
+        var document = documents.findByIdAndLegalProcessId(documentId, caseId)
+                .filter(d -> d.getPayment() != null && paymentId.equals(d.getPayment().getId()))
+                .orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Comprobante no encontrado en este abono."));
+        documents.delete(document);
+        documents.flush();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                try { storage(document.getStorageProvider()).delete(document.getObjectKey()); }
+                catch (IOException | RuntimeException error) { log.error("No se pudo limpiar el comprobante {}", documentId, error); }
+            }
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<Summary> receipts(Long caseId, UUID paymentId) {
+        requireCase(caseId);
+        return documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream()
+                .filter(d -> d.getPayment() != null && paymentId.equals(d.getPayment().getId()))
+                .map(Summary::of).toList();
+    }
+
     private Summary store(Long caseId, MultipartFile file, LegalProcessRequirementEntity requirement) {
+        return store(caseId, file, requirement, null);
+    }
+
+    private Summary store(Long caseId, MultipartFile file, LegalProcessRequirementEntity requirement,
+            com.seminario.legaladministrator.modules.payments.CasePaymentEntity payment) {
         var operator = officeAccess.current();
         var legalCase = requireCase(caseId);
         if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
@@ -140,6 +193,7 @@ public class CaseDocumentService {
         entity.setId(UUID.randomUUID());
         entity.setLegalProcess(legalCase);
         entity.setLegalProcessRequirement(requirement);
+        entity.setPayment(payment);
         entity.setOriginalName(validated.name());
         entity.setContentType(validated.contentType());
         entity.setSizeBytes(validated.sizeBytes());
