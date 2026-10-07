@@ -42,6 +42,37 @@ class CaseDocumentServiceTest {
     }
     @AfterEach void clear() { TransactionSynchronizationManager.clearSynchronization(); }
 
+    @Test void caseCompletionRequiresMandatoryRequirementsButNotOptionalOnes() {
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(1L);
+        legalCase.setVersion(0L);
+        when(cases.findById(1L)).thenReturn(Optional.of(legalCase));
+        when(cases.saveAndFlush(legalCase)).thenReturn(legalCase);
+        var mandatory = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        mandatory.setRequiredSnapshot(true);
+        var optional = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        when(requirements.findByLegalProcessIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(mandatory, optional));
+        assertThatThrownBy(() -> service.completeCase(1L)).isInstanceOf(OperationException.class)
+                .hasMessageContaining("todos los requisitos obligatorios");
+        assertThat(legalCase.getCurrentStatus()).isEqualTo("OPEN");
+        mandatory.setStatus("COMPLETED");
+        service.completeCase(1L);
+        assertThat(legalCase.getCurrentStatus()).isEqualTo("COMPLETED");
+        assertThat(optional.getStatus()).isEqualTo("PENDING");
+    }
+
+    @Test void caseCompletionRechecksRequiredPdfEvenForPreviouslyCompletedRequirement() {
+        var mandatory = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        mandatory.setId(10L);
+        mandatory.setRequiredSnapshot(true);
+        mandatory.setRequiresDocumentSnapshot(true);
+        mandatory.setStatus("COMPLETED");
+        when(requirements.findByLegalProcessIdOrderByDisplayOrderAsc(1L)).thenReturn(List.of(mandatory));
+        assertThatThrownBy(() -> service.completeCase(1L)).isInstanceOf(OperationException.class)
+                .hasMessageContaining("necesita un PDF guardado");
+        verify(cases, never()).saveAndFlush(any());
+    }
+
     @Test void uploadAssociatesDocumentWithTheRequestedRequirement() {
         var legalCase = new LegalProcessEntity();
         legalCase.setId(1L);

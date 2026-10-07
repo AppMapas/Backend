@@ -26,6 +26,12 @@ public class CaseDocumentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.upload(caseId, file));
     }
 
+    @PostMapping("/{caseId}/complete")
+    public java.util.Map<String, Object> complete(@PathVariable Long caseId) {
+        var version = service.completeCase(caseId);
+        return java.util.Map.of("status", "COMPLETED", "version", version);
+    }
+
     @PatchMapping("/{caseId}/requirements/{requirementId}/status")
     public ResponseEntity<Void> updateStatus(@PathVariable Long caseId, @PathVariable Long requirementId,
             @jakarta.validation.Valid @RequestBody CaseDocumentService.StatusRequest request) {

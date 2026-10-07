@@ -48,16 +48,39 @@ public class CaseDocumentService {
             @jakarta.validation.constraints.NotNull String status) { }
 
     @Transactional
+    public Long completeCase(Long caseId) {
+        var legalCase = requireCase(caseId);
+        if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
+        var items = requirements.findByLegalProcessIdOrderByDisplayOrderAsc(caseId);
+        for (var requirement : items) {
+            if (requirement.isRequiredSnapshot() && !"COMPLETED".equals(requirement.getStatus())) {
+                throw new OperationException(HttpStatus.CONFLICT,
+                        "Completa todos los requisitos obligatorios antes de completar el expediente.");
+            }
+            if (requirement.isRequiredSnapshot() && requirement.isRequiresDocumentSnapshot()
+                    && !hasPdf(caseId, requirement.getId())) {
+                throw new OperationException(HttpStatus.CONFLICT,
+                        "El requisito obligatorio " + requirement.getNameSnapshot() + " necesita un PDF guardado.");
+            }
+        }
+        legalCase.setCurrentStatus("COMPLETED");
+        return cases.saveAndFlush(legalCase).getVersion();
+    }
+
+    private boolean hasPdf(Long caseId, Long requirementId) {
+        return documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream()
+                .anyMatch(d -> d.getLegalProcessRequirement() != null
+                        && requirementId.equals(d.getLegalProcessRequirement().getId())
+                        && "application/pdf".equals(d.getContentType()));
+    }
+
+    @Transactional
     public void updateRequirementStatus(Long caseId, Long requirementId, StatusRequest request) {
         var legalCase = requireCase(caseId);
         if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
         var requirement = requireRequirement(caseId, requirementId);
         if ("COMPLETED".equals(request.status()) && requirement.isRequiresDocumentSnapshot()) {
-            boolean hasPdf = documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream()
-                    .anyMatch(d -> d.getLegalProcessRequirement() != null
-                            && requirementId.equals(d.getLegalProcessRequirement().getId())
-                            && "application/pdf".equals(d.getContentType()));
-            if (!hasPdf) throw new OperationException(HttpStatus.CONFLICT,
+            if (!hasPdf(caseId, requirementId)) throw new OperationException(HttpStatus.CONFLICT,
                     "Adjunta y guarda un PDF antes de marcar este requisito como completado.");
         }
         requirement.setStatus(request.status());
@@ -70,6 +93,11 @@ public class CaseDocumentService {
             log.error("No se pudo guardar el estado del requisito {} del expediente {}", requirementId, caseId, error);
             throw new OperationException(HttpStatus.CONFLICT,
                     "No fue posible guardar el estado del requisito. Actualiza el expediente e inténtalo nuevamente.");
+        }
+        if ("PENDING".equals(request.status()) && requirement.isRequiredSnapshot()
+                && "COMPLETED".equals(legalCase.getCurrentStatus())) {
+            legalCase.setCurrentStatus("OPEN");
+            cases.saveAndFlush(legalCase);
         }
     }
 
