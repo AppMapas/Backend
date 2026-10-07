@@ -2,6 +2,8 @@ package com.seminario.legaladministrator.modules.documents;
 
 import com.seminario.legaladministrator.config.security.OfficeAccess;
 import com.seminario.legaladministrator.modules.processes.LegalProcessEntity;
+import com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity;
+import com.seminario.legaladministrator.modules.processes.repository.LegalProcessRequirementRepository;
 import com.seminario.legaladministrator.modules.processes.repository.LegalProcessRepository;
 import com.seminario.legaladministrator.shared.OperationException;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class CaseDocumentService {
     private final DocumentValidator validator;
     private final DocumentProperties properties;
     private final List<DocumentStorage> storages;
+    private final LegalProcessRequirementRepository requirements;
 
     public record Summary(UUID id, String name, String contentType, long sizeBytes, Instant uploadedAt) {
         static Summary of(CaseDocumentEntity entity) {
@@ -39,7 +42,36 @@ public class CaseDocumentService {
     public record Content(Summary document, byte[] bytes) { }
     public record Policy(long maxFileSize, List<String> extensions) { }
 
-    public Policy policy() { return new Policy(properties.getMaxFileSize().toBytes(), List.of("pdf", "jpg", "jpeg", "png")); }
+    public Policy policy() { return new Policy(properties.getMaxFileSize().toBytes(), List.of("pdf")); }
+
+    public record StatusRequest(@jakarta.validation.constraints.Pattern(regexp = "PENDING|COMPLETED")
+            @jakarta.validation.constraints.NotNull String status) { }
+
+    @Transactional
+    public void updateRequirementStatus(Long caseId, Long requirementId, StatusRequest request) {
+        var legalCase = requireCase(caseId);
+        if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
+        var requirement = requireRequirement(caseId, requirementId);
+        if ("COMPLETED".equals(request.status()) && requirement.isRequiresDocumentSnapshot()) {
+            boolean hasPdf = documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream()
+                    .anyMatch(d -> d.getLegalProcessRequirement() != null
+                            && requirementId.equals(d.getLegalProcessRequirement().getId())
+                            && "application/pdf".equals(d.getContentType()));
+            if (!hasPdf) throw new OperationException(HttpStatus.CONFLICT,
+                    "Adjunta y guarda un PDF antes de marcar este requisito como completado.");
+        }
+        requirement.setStatus(request.status());
+        var now = Instant.now();
+        requirement.setCompletedAt("COMPLETED".equals(request.status()) ? now : null);
+        requirement.setUpdatedAt(now);
+        try {
+            requirements.saveAndFlush(requirement);
+        } catch (org.springframework.dao.DataIntegrityViolationException error) {
+            log.error("No se pudo guardar el estado del requisito {} del expediente {}", requirementId, caseId, error);
+            throw new OperationException(HttpStatus.CONFLICT,
+                    "No fue posible guardar el estado del requisito. Actualiza el expediente e inténtalo nuevamente.");
+        }
+    }
 
     @Transactional(readOnly = true)
     public List<Summary> list(Long caseId) {
@@ -47,8 +79,29 @@ public class CaseDocumentService {
         return documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream().map(Summary::of).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<Summary> listByRequirement(Long caseId, Long requirementId) {
+        requireCase(caseId);
+        requireRequirement(caseId, requirementId);
+        return documents.findByLegalProcessIdOrderByUploadedAtDesc(caseId).stream()
+                .filter(d -> d.getLegalProcessRequirement() != null
+                        && requirementId.equals(d.getLegalProcessRequirement().getId()))
+                .map(Summary::of).toList();
+    }
+
+    @Transactional
+    public Summary uploadToRequirement(Long caseId, Long requirementId, MultipartFile file) {
+        requireCase(caseId);
+        var requirement = requireRequirement(caseId, requirementId);
+        return store(caseId, file, requirement);
+    }
+
     @Transactional
     public Summary upload(Long caseId, MultipartFile file) {
+        return store(caseId, file, null);
+    }
+
+    private Summary store(Long caseId, MultipartFile file, LegalProcessRequirementEntity requirement) {
         var operator = officeAccess.current();
         var legalCase = requireCase(caseId);
         if (!legalCase.isActive()) throw new OperationException(HttpStatus.CONFLICT, "El expediente está inactivo.");
@@ -58,6 +111,7 @@ public class CaseDocumentService {
         var entity = new CaseDocumentEntity();
         entity.setId(UUID.randomUUID());
         entity.setLegalProcess(legalCase);
+        entity.setLegalProcessRequirement(requirement);
         entity.setOriginalName(validated.name());
         entity.setContentType(validated.contentType());
         entity.setSizeBytes(validated.sizeBytes());
@@ -101,7 +155,21 @@ public class CaseDocumentService {
     }
 
     private LegalProcessEntity requireCase(Long id) {
-        return cases.findById(id).orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Expediente no encontrado."));
+        var legalCase = cases.findById(id).orElseThrow(() -> new OperationException(HttpStatus.NOT_FOUND, "Expediente no encontrado."));
+        var operator = officeAccess.current();
+        if (!"Administrador".equals(operator.getRole().getName())
+                && !operator.getDpi().equals(legalCase.getAssignedUser().getDpi())) {
+            throw new OperationException(HttpStatus.NOT_FOUND, "Expediente no encontrado.");
+        }
+        return legalCase;
+    }
+
+    private LegalProcessRequirementEntity requireRequirement(Long caseId, Long requirementId) {
+        var requirement = requirements.findById(requirementId).orElse(null);
+        if (requirement == null || !caseId.equals(requirement.getLegalProcess().getId())) {
+            throw new OperationException(HttpStatus.NOT_FOUND, "Requisito no encontrado en este expediente.");
+        }
+        return requirement;
     }
 
     private DocumentStorage storage(String provider) {

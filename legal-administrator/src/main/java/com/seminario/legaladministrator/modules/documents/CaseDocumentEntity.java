@@ -1,6 +1,7 @@
 package com.seminario.legaladministrator.modules.documents;
 
 import com.seminario.legaladministrator.modules.processes.LegalProcessEntity;
+import com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity;
 import com.seminario.legaladministrator.modules.users.UserSystemEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -16,6 +17,9 @@ public class CaseDocumentEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "legal_process_id", nullable = false)
     private LegalProcessEntity legalProcess;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "legal_process_requirement_id")
+    private LegalProcessRequirementEntity legalProcessRequirement;
     @Column(name = "original_name", nullable = false, length = 180)
     private String originalName;
     @Column(name = "content_type", nullable = false, length = 50)

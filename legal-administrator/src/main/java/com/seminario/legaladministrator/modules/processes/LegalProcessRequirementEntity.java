@@ -36,6 +36,8 @@ public class LegalProcessRequirementEntity {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name = "completed_at")
+    private Instant completedAt;
     @PrePersist
     void beforeInsert() {
         createdAt = Instant.now();

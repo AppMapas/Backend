@@ -22,18 +22,92 @@ class CaseDocumentServiceTest {
     DocumentStorage local = mock(DocumentStorage.class);
     DocumentStorage cloud = mock(DocumentStorage.class);
     DocumentProperties properties = new DocumentProperties();
+    com.seminario.legaladministrator.modules.processes.repository.LegalProcessRequirementRepository requirements =
+            mock(com.seminario.legaladministrator.modules.processes.repository.LegalProcessRequirementRepository.class);
     CaseDocumentService service = new CaseDocumentService(documents, cases, access,
-            new DocumentValidator(properties), properties, List.of(local, cloud));
+            new DocumentValidator(properties), properties, List.of(local, cloud),
+            requirements);
     MockMultipartFile file = new MockMultipartFile("file", "DPI.pdf", "application/pdf", "%PDF-1.7\n%%EOF".getBytes());
 
     @BeforeEach void prepare() {
         when(local.provider()).thenReturn("local");
         when(cloud.provider()).thenReturn("gcs");
-        when(access.current()).thenReturn(new UserSystemEntity());
+        var operator = new UserSystemEntity();
+        var role = new com.seminario.legaladministrator.modules.users.RoleEntity();
+        role.setName("Administrador");
+        operator.setRole(role);
+        when(access.current()).thenReturn(operator);
         when(cases.findById(1L)).thenReturn(Optional.of(new LegalProcessEntity()));
         TransactionSynchronizationManager.initSynchronization();
     }
     @AfterEach void clear() { TransactionSynchronizationManager.clearSynchronization(); }
+
+    @Test void uploadAssociatesDocumentWithTheRequestedRequirement() {
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(1L);
+        var requirement = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        requirement.setId(10L);
+        requirement.setLegalProcess(legalCase);
+        when(requirements.findById(10L)).thenReturn(Optional.of(requirement));
+        service.uploadToRequirement(1L, 10L, file);
+        var captor = ArgumentCaptor.forClass(CaseDocumentEntity.class);
+        verify(documents).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getLegalProcessRequirement()).isSameAs(requirement);
+    }
+
+    @Test void rejectsRequirementFromAnotherCaseBeforeStoringFile() {
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(2L);
+        var requirement = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        requirement.setLegalProcess(legalCase);
+        when(requirements.findById(10L)).thenReturn(Optional.of(requirement));
+        assertThatThrownBy(() -> service.uploadToRequirement(1L, 10L, file))
+                .isInstanceOf(OperationException.class).hasMessageContaining("Requisito no encontrado");
+        verifyNoInteractions(documents);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void requiredPdfCannotCompleteUntilAnAssociatedPdfIsStored(boolean required) {
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(1L);
+        var requirement = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        requirement.setId(10L);
+        requirement.setLegalProcess(legalCase);
+        requirement.setRequiresDocumentSnapshot(true);
+        requirement.setRequiredSnapshot(required);
+        when(requirements.findById(10L)).thenReturn(Optional.of(requirement));
+        when(documents.findByLegalProcessIdOrderByUploadedAtDesc(1L)).thenReturn(List.of());
+        var request = new CaseDocumentService.StatusRequest("COMPLETED");
+        assertThatThrownBy(() -> service.updateRequirementStatus(1L, 10L, request))
+                .isInstanceOf(OperationException.class).hasMessageContaining("guarda un PDF");
+        assertThat(requirement.getStatus()).isEqualTo("PENDING");
+        var pdf = new CaseDocumentEntity();
+        pdf.setLegalProcessRequirement(requirement);
+        pdf.setContentType("application/pdf");
+        when(documents.findByLegalProcessIdOrderByUploadedAtDesc(1L)).thenReturn(List.of(pdf));
+        service.updateRequirementStatus(1L, 10L, request);
+        assertThat(requirement.getStatus()).isEqualTo("COMPLETED");
+        assertThat(requirement.getCompletedAt()).isNotNull().isEqualTo(requirement.getUpdatedAt());
+        verify(requirements).saveAndFlush(requirement);
+        service.updateRequirementStatus(1L, 10L, new CaseDocumentService.StatusRequest("PENDING"));
+        assertThat(requirement.getStatus()).isEqualTo("PENDING");
+        assertThat(requirement.getCompletedAt()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void optionalPdfRequirementCanCompleteWithoutAttachment(boolean required) {
+        var legalCase = new LegalProcessEntity();
+        legalCase.setId(1L);
+        var requirement = new com.seminario.legaladministrator.modules.processes.LegalProcessRequirementEntity();
+        requirement.setLegalProcess(legalCase);
+        requirement.setRequiredSnapshot(required);
+        when(requirements.findById(10L)).thenReturn(Optional.of(requirement));
+        service.updateRequirementStatus(1L, 10L, new CaseDocumentService.StatusRequest("COMPLETED"));
+        assertThat(requirement.getStatus()).isEqualTo("COMPLETED");
+        assertThat(requirement.getCompletedAt()).isNotNull();
+    }
 
     @Test void storesMetadataAndCleansObjectOnDatabaseRollback() throws Exception {
         var summary = service.upload(1L, file);

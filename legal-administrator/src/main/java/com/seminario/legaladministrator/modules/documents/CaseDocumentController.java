@@ -26,6 +26,24 @@ public class CaseDocumentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.upload(caseId, file));
     }
 
+    @PatchMapping("/{caseId}/requirements/{requirementId}/status")
+    public ResponseEntity<Void> updateStatus(@PathVariable Long caseId, @PathVariable Long requirementId,
+            @jakarta.validation.Valid @RequestBody CaseDocumentService.StatusRequest request) {
+        service.updateRequirementStatus(caseId, requirementId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{caseId}/requirements/{requirementId}/documents")
+    public List<CaseDocumentService.Summary> listByRequirement(@PathVariable Long caseId, @PathVariable Long requirementId) {
+        return service.listByRequirement(caseId, requirementId);
+    }
+
+    @PostMapping(value = "/{caseId}/requirements/{requirementId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CaseDocumentService.Summary> uploadToRequirement(@PathVariable Long caseId,
+            @PathVariable Long requirementId, @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.uploadToRequirement(caseId, requirementId, file));
+    }
+
     @GetMapping("/{caseId}/documents/{id}/content")
     public ResponseEntity<byte[]> content(@PathVariable Long caseId, @PathVariable UUID id,
                                          @RequestParam(defaultValue = "false") boolean download) {

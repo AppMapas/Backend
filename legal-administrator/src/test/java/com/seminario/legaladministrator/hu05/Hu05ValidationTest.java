@@ -52,15 +52,15 @@ class Hu05ValidationTest {
         var id = UUID.randomUUID();
         var client = Hu05Fixtures.client("invalid");
         var validator = FACTORY.getValidator();
-        assertThat(validator.validate(new CreateRequest(id, null, null, 1L, 0L, null))).isNotEmpty();
-        assertThat(validator.validate(new CreateRequest(id, "1234567890123", client, 1L, 0L, null))).isNotEmpty();
-        assertThat(validator.validate(new CreateRequest(id, null, client, 1L, 0L, null))).isNotEmpty();
+        assertThat(validator.validate(new CreateRequest(id, null, null, 1L, 0L, null, null))).isNotEmpty();
+        assertThat(validator.validate(new CreateRequest(id, "1234567890123", client, 1L, 0L, null, null))).isNotEmpty();
+        assertThat(validator.validate(new CreateRequest(id, null, client, 1L, 0L, null, null))).isNotEmpty();
     }
 
     @Test
     void requiresRequestKeyAndTemplateVersion() {
         assertThat(FACTORY.getValidator().validate(
-                new CreateRequest(null, "1234567890123", null, 1L, null, null))).hasSize(2);
+                new CreateRequest(null, "1234567890123", null, 1L, null, null, null))).hasSize(2);
     }
 
     @ParameterizedTest
@@ -80,8 +80,8 @@ class Hu05ValidationTest {
     void fingerprintChangesWhenPayloadChangesAndKeepsSameForRetry() {
         var guard = new CaseRequestGuard(null);
         var id = UUID.randomUUID();
-        var original = new CreateRequest(id, "1234567890123", null, 1L, 0L, "Descripción");
-        var changed = new CreateRequest(id, "1234567890123", null, 1L, 0L, "Otra");
+        var original = new CreateRequest(id, "1234567890123", null, 1L, 0L, "Descripción", null);
+        var changed = new CreateRequest(id, "1234567890123", null, 1L, 0L, "Otra", null);
         assertThat(guard.fingerprint(original)).hasSize(64).isEqualTo(guard.fingerprint(original));
         assertThat(guard.fingerprint(changed)).isNotEqualTo(guard.fingerprint(original));
     }

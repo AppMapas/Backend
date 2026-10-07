@@ -1,9 +1,13 @@
 package com.seminario.legaladministrator.modules.processes.dto;
 
 import com.seminario.legaladministrator.modules.users.dto.ClientUserRequestDto;
+import com.seminario.legaladministrator.modules.payments.PaymentMethod;
+import com.seminario.legaladministrator.modules.payments.PaymentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,7 +20,8 @@ public final class LegalProcessDtos {
             @Valid ClientUserRequestDto client,
             @NotNull @Positive Long processTypeId,
             @NotNull @PositiveOrZero Long processTypeVersion,
-            @Size(max = 5000) String generalDetails) {
+            @Size(max = 5000) String generalDetails,
+            @Valid InitialPayment initialPayment) {
         @AssertTrue(message = "Indica un cliente existente o los datos de uno nuevo, de forma excluyente.")
         public boolean isClientChoiceValid() {
             return (clientDpi != null) != (client != null);
@@ -32,4 +37,12 @@ public final class LegalProcessDtos {
                                       boolean required, boolean requiresDocument, int displayOrder, String status) { }
     public record Detail(Summary caseData, List<RequirementResponse> requirements) { }
     public record Creation(Detail detail, boolean replayed) { }
+
+    public record InitialPayment(
+            @NotNull @DecimalMin("0.01") @Digits(integer = 12, fraction = 2) BigDecimal amount,
+            @NotNull PaymentType paymentType,
+            @NotNull PaymentMethod paymentMethod,
+            @NotBlank @Size(max = 120) String concept,
+            @NotNull @PastOrPresent LocalDate paymentDate,
+            @Size(max = 60) String reference) { }
 }

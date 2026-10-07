@@ -4,6 +4,8 @@ import com.seminario.legaladministrator.config.security.OfficeAccess;
 import com.seminario.legaladministrator.modules.processes.*;
 import com.seminario.legaladministrator.modules.processes.dto.LegalProcessDtos.*;
 import com.seminario.legaladministrator.modules.processes.repository.*;
+import com.seminario.legaladministrator.modules.payments.CasePaymentService;
+import com.seminario.legaladministrator.modules.payments.PaymentDtos;
 import com.seminario.legaladministrator.modules.users.ClientUserEntity;
 import com.seminario.legaladministrator.modules.users.repository.ClientUserRepository;
 import com.seminario.legaladministrator.modules.users.service.ClientUserService;
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 import java.util.Comparator;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class LegalProcessService {
     private final ClientUserRepository clients;
     private final ClientUserService clientService;
     private final OfficeAccess officeAccess;
+    private final CasePaymentService casePaymentService;
     private final CaseRequestGuard requestGuard;
     private final Validator validator;
 
@@ -102,6 +106,18 @@ public class LegalProcessService {
         entity = cases.saveAndFlush(entity);
         LegalProcessEntity saved = entity;
         requirements.saveAllAndFlush(links.stream().map(link -> snapshot(saved, link)).toList());
+        if (request.initialPayment() != null) {
+            var ip = request.initialPayment();
+            var payReq = new PaymentDtos.CreatePaymentRequest(
+                    UUID.randomUUID(),
+                    ip.amount(),
+                    ip.paymentType(),
+                    ip.paymentMethod(),
+                    ip.concept(),
+                    ip.paymentDate(),
+                    ip.reference());
+            casePaymentService.register(saved.getId(), payReq);
+        }
         return new Creation(detail(saved), false);
     }
 
