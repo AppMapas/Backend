@@ -154,7 +154,7 @@ class Hu05PersistenceTest {
         assertThat(retry.replayed()).isTrue();
         assertThat(retry.detail().caseData().id()).isEqualTo(first.detail().caseData().id());
         var changed = new CreateRequest(request.requestId(), null, request.client(),
-                template.getId(), template.getVersion(), "Otra descripción");
+                template.getId(), template.getVersion(), "Otra descripción", null);
         assertThatThrownBy(() -> cases.create(changed)).isInstanceOf(OperationException.class);
         assertThat(cases.search("", dpi, null, null, true, 0, 20).totalElements()).isEqualTo(1);
     }
@@ -191,7 +191,7 @@ class Hu05PersistenceTest {
         var legacyDpi = jdbc.queryForObject(
                 "select dpi from client_user where id_nationality is null limit 1", String.class);
         var legacy = new CreateRequest(UUID.randomUUID(), legacyDpi, null,
-                template.getId(), template.getVersion(), null);
+                template.getId(), template.getVersion(), null, null);
         assertThatThrownBy(() -> cases.create(legacy)).hasMessageContaining("Completa");
     }
 
@@ -297,11 +297,11 @@ class Hu05PersistenceTest {
 
     private CreateRequest newRequest() {
         return new CreateRequest(UUID.randomUUID(), null, Hu05Fixtures.client(dpi),
-                template.getId(), template.getVersion(), "Solicitud inicial");
+                template.getId(), template.getVersion(), "Solicitud inicial", null);
     }
 
     private CreateRequest existingRequest(UUID id) {
-        return new CreateRequest(id, dpi, null, template.getId(), template.getVersion(), null);
+        return new CreateRequest(id, dpi, null, template.getId(), template.getVersion(), null, null);
     }
 
     private static void authenticate(String email, String role) {

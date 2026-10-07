@@ -58,6 +58,15 @@ public class CaseRequestGuard {
             values.add(InputRules.text(c.getExactAddress()));
             values.add(c.getMunicipalityId());
         }
+        if (request.initialPayment() != null) {
+            var p = request.initialPayment();
+            values.add(p.amount());
+            values.add(p.paymentType());
+            values.add(p.paymentMethod());
+            values.add(InputRules.text(p.concept()));
+            values.add(p.paymentDate());
+            values.add(InputRules.text(p.reference()));
+        }
         return fingerprint(values);
     }
 

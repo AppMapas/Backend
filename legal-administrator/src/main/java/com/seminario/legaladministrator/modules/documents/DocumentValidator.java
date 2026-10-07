@@ -15,7 +15,7 @@ import java.util.Map;
 public class DocumentValidator {
     private final DocumentProperties properties;
     private static final Map<String, String> TYPES = Map.of(
-            "pdf", "application/pdf", "jpg", "image/jpeg", "jpeg", "image/jpeg", "png", "image/png");
+            "pdf", "application/pdf");
 
     public record Validated(String name, String contentType, long sizeBytes) { }
 
@@ -32,7 +32,7 @@ public class DocumentValidator {
         }
         String extension = name.substring(name.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
         String type = TYPES.get(extension);
-        if (type == null) throw invalid("Solo se permiten documentos PDF, JPG y PNG.");
+        if (type == null) throw invalid("Solo se permiten documentos PDF.");
         String declared = file.getContentType();
         if (declared != null && !declared.isBlank() && !declared.equals("application/octet-stream")
                 && !declared.equalsIgnoreCase(type)) {
@@ -72,7 +72,7 @@ public class DocumentValidator {
                     new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10});
             default -> false;
         };
-        if (!valid) throw invalid("El contenido no corresponde a un archivo PDF, JPG o PNG válido.");
+        if (!valid) throw invalid("El contenido no corresponde a un archivo PDF válido.");
         return new Validated(name, type, size);
     }
 

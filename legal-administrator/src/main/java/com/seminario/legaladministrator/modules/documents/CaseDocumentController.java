@@ -26,6 +26,48 @@ public class CaseDocumentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.upload(caseId, file));
     }
 
+    @PostMapping("/{caseId}/complete")
+    public java.util.Map<String, Object> complete(@PathVariable Long caseId) {
+        var version = service.completeCase(caseId);
+        return java.util.Map.of("status", "COMPLETED", "version", version);
+    }
+
+    @PatchMapping("/{caseId}/requirements/{requirementId}/status")
+    public ResponseEntity<Void> updateStatus(@PathVariable Long caseId, @PathVariable Long requirementId,
+            @jakarta.validation.Valid @RequestBody CaseDocumentService.StatusRequest request) {
+        service.updateRequirementStatus(caseId, requirementId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{caseId}/requirements/{requirementId}/documents")
+    public List<CaseDocumentService.Summary> listByRequirement(@PathVariable Long caseId, @PathVariable Long requirementId) {
+        return service.listByRequirement(caseId, requirementId);
+    }
+
+    @PostMapping(value = "/{caseId}/requirements/{requirementId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CaseDocumentService.Summary> uploadToRequirement(@PathVariable Long caseId,
+            @PathVariable Long requirementId, @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.uploadToRequirement(caseId, requirementId, file));
+    }
+
+    @PostMapping(value = "/{caseId}/payments/requests/{requestId}/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CaseDocumentService.Summary> uploadReceipt(@PathVariable Long caseId,
+            @PathVariable UUID requestId, @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.uploadReceipt(caseId, requestId, file));
+    }
+
+    @GetMapping("/{caseId}/payments/{paymentId}/receipts")
+    public List<CaseDocumentService.Summary> receipts(@PathVariable Long caseId, @PathVariable UUID paymentId) {
+        return service.receipts(caseId, paymentId);
+    }
+
+    @DeleteMapping("/{caseId}/payments/{paymentId}/receipts/{documentId}")
+    public ResponseEntity<Void> removeReceipt(@PathVariable Long caseId, @PathVariable UUID paymentId,
+            @PathVariable UUID documentId) {
+        service.removeReceipt(caseId, paymentId, documentId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{caseId}/documents/{id}/content")
     public ResponseEntity<byte[]> content(@PathVariable Long caseId, @PathVariable UUID id,
                                          @RequestParam(defaultValue = "false") boolean download) {
