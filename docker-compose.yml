@@ -16,9 +16,7 @@ services:
       retries: 5
     volumes:
       - pg_data:/var/lib/postgresql/data
-      # aca se inicializan los scripts jeje
-      - ./scripts/db_legal_administrator:/docker-entrypoint-initdb.d/01_db_legal_administrator.sql:ro
-      - ./scripts/insert.sql:/docker-entrypoint-initdb.d/02_insert.sql:ro
+      # Flyway crea el esquema al iniciar el backend; no duplicar con scripts init.
   backend:
     build:
       context: ./legal-administrator
@@ -29,6 +27,8 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     environment:
+      SPRING_PROFILES_ACTIVE: dev
+      PORT: 8080
       GOOGLE_CALENDAR_ENABLED: ${GOOGLE_CALENDAR_ENABLED:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -41,7 +41,7 @@ services:
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-db_legal_administrator}
       DB_USER: ${POSTGRES_USER:-admin}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-administrador}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en Backend/.env}
       DOCUMENT_STORAGE_PROVIDER: ${DOCUMENT_STORAGE_PROVIDER:-local}
       DOCUMENT_LOCAL_DIRECTORY: /app/data/documents
       DOCUMENT_GCS_BUCKET: ${DOCUMENT_GCS_BUCKET:-}
@@ -56,18 +56,18 @@ services:
       - m2_data:/root/.m2
       - document_data:/app/data/documents
       
-  # para levantar todo docker compose --profile all up
+  # docker compose up --build levanta los tres servicios.
   frontend:
     build:
       context: ../Frontend/legal_administrator_frontend
       dockerfile: Dockerfile
       target: dev
     container_name: legal_frontend
-    profiles: ["frontend", "all"]
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
     volumes:
       - ../Frontend/legal_administrator_frontend:/app
       - /app/node_modules

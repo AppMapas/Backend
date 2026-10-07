@@ -19,12 +19,12 @@ CMD ["mvn", "spring-boot:run"]
 
 # ==============================================================
 # STAGE 3 — Compilación del JAR de producción
-# Se excluyen tests para agilizar el build; Flyway ya lleva
+# Se ejecutan los tests antes de generar la imagen; Flyway lleva
 # las migraciones empaquetadas dentro del JAR.
 # ==============================================================
 FROM base AS builder
 COPY src ./src
-RUN mvn clean package -DskipTests
+RUN mvn -B clean verify
 
 # ==============================================================
 # STAGE 4 — Imagen de producción (JRE mínimo)
@@ -38,7 +38,8 @@ FROM eclipse-temurin:17-jre-alpine AS prod
 WORKDIR /app
 
 # Usuario sin privilegios para mayor seguridad
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN addgroup -S spring && adduser -S spring -G spring \
+    && mkdir -p /app/data/documents && chown -R spring:spring /app/data
 USER spring:spring
 
 COPY --from=builder /app/target/*.jar app.jar
@@ -47,9 +48,6 @@ EXPOSE 8080
 
 # Variables de entorno requeridas en tiempo de ejecución
 # (inyectadas por docker-compose o por el orquestador)
-ENV DB_URL=""
-ENV DB_USER=""
-ENV DB_PASSWORD=""
-ENV JWT_SECRET=""
+ENV SPRING_PROFILES_ACTIVE=prod
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

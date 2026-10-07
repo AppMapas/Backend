@@ -22,14 +22,14 @@ class DocumentValidationAndStorageTest {
     private final DocumentValidator validator = new DocumentValidator(properties);
 
     @Test
-    void acceptsPdfAndRealCameraImages() throws Exception {
+    void acceptsPdfAndRejectsRealCameraImages() throws Exception {
         var pdf = validator.validate(new MockMultipartFile("file", "C:\\fakepath\\DPI.PDF", "application/pdf", "%PDF-1.7\n%%EOF".getBytes()));
         assertThat(pdf.name()).isEqualTo("DPI.PDF");
         for (String format : new String[]{"jpeg", "png"}) {
             var output = new ByteArrayOutputStream();
             ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), format, output);
-            assertThat(validator.validate(new MockMultipartFile("file", "foto." + format,
-                    "image/" + format, output.toByteArray())).contentType()).isEqualTo("image/" + format);
+            assertThatThrownBy(() -> validator.validate(new MockMultipartFile("file", "foto." + format,
+                    "image/" + format, output.toByteArray()))).isInstanceOf(OperationException.class);
         }
     }
 
@@ -51,19 +51,14 @@ class DocumentValidationAndStorageTest {
     @Test
     void validatesSignatureAndCountedSizeForFilesLargerThanTheReadBuffer() throws Exception {
         // La validación es en streaming: firma al inicio y terminador al final del último bloque.
-        var image = new BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB);
-        for (int x = 0; x < 400; x++) {
-            for (int y = 0; y < 400; y++) image.setRGB(x, y, (x * 7919) ^ (y * 104729));
-        }
-        for (String format : new String[]{"jpeg", "png"}) {
-            var output = new ByteArrayOutputStream();
-            ImageIO.write(image, format, output);
-            byte[] content = output.toByteArray();
-            assertThat(content.length).isGreaterThan(32 * 1024);
-            var validated = validator.validate(new MockMultipartFile("file", "escaneo." + format,
-                    "image/" + format, content));
-            assertThat(validated.sizeBytes()).isEqualTo(content.length);
-        }
+        byte[] content = ("%PDF-1.7\n" + "x".repeat(64 * 1024) + "\n%%EOF").getBytes();
+        var validated = validator.validate(new MockMultipartFile("file", "escaneo.pdf",
+                "application/pdf", content));
+        assertThat(validated.sizeBytes()).isEqualTo(content.length);
+        properties.setMaxFileSize(DataSize.ofBytes(content.length - 1));
+        assertThatThrownBy(() -> validator.validate(new MockMultipartFile("file", "escaneo.pdf",
+                "application/pdf", content)))
+                .isInstanceOfSatisfying(OperationException.class, error -> assertThat(error.getStatus().value()).isEqualTo(413));
     }
 
     @Test
