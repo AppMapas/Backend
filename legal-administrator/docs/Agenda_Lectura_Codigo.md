@@ -8,7 +8,7 @@ Flyway registra el checksum de cada migración aplicada. Los archivos V11 y V12 
 
 ### V11: agenda interna, autorización y publicación
 
-Archivo: `src/main/resources/db/migration/V11__agenda_and_google_calendar.sql`.
+Archivo: `src/main/resources/db/migration/V14__agenda_and_google_calendar.sql`.
 
 1. **Control de registros heredados (`DO ... IF EXISTS`).** La migración se detiene si la antigua agenda tiene registros. Esos datos requieren una conciliación de fechas, zona horaria y responsable antes de añadir campos obligatorios. No deben eliminarse para evadir el control.
 2. **Ampliación de `legal_process_calendar`.** Permite una actividad sin expediente y agrega cliente, responsable, horario, tipo, estado, autor y fechas de auditoría. `timestamptz` guarda instantes; `time_zone` conserva la zona de interpretación de la actividad.
@@ -36,7 +36,7 @@ UNIQUE (event_id, event_version);
 
 ### V12: conexiones individuales, series y excepciones
 
-Archivo: `src/main/resources/db/migration/V12__agenda_individual_connections_and_recurrence.sql`.
+Archivo: `src/main/resources/db/migration/V15__agenda_individual_connections_and_recurrence.sql`.
 
 1. **Retirar solo la conexión inicial vacía.** El `DELETE` exige titular y token nulos; conserva una conexión existente con credenciales.
 2. **Retirar el límite `id = 1`.** El bloque `DO` localiza esa restricción por su definición. Se pasa a identificadores `bigint` con identidad y se avanza la secuencia por encima de los IDs existentes.
