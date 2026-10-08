@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPOSITORY: legal-administrator-backend
       ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'LegalAdministrator' }}
       BACKEND_SERVICE_NAME: ${{ vars.BACKEND_SERVICE_NAME || 'legal-administrator-backend' }}
       ECS_EXECUTION_ROLE_ARN: ${{ vars.ECS_EXECUTION_ROLE_ARN }}
@@ -62,7 +63,7 @@ jobs:
       - name: Validate AWS resources and resolve RDS endpoint
         run: |
           set -euo pipefail
-          aws ecr describe-repositories --repository-names legal-backend >/dev/null
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null
           if [ -n "$DB_HOST" ]; then
             host="$DB_HOST"
             port="$DB_PORT"
@@ -85,7 +86,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           set -euo pipefail
-          image="$ECR_REGISTRY/legal-backend:$GITHUB_SHA"
+          image="$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
           docker build --target prod -t "$image" legal-administrator
           docker push "$image"
           echo "IMAGE_URI=$image" >> "$GITHUB_ENV"
