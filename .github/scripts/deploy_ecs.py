@@ -98,7 +98,7 @@ def deploy(kind):
         "executionRoleArn": required("ECS_EXECUTION_ROLE_ARN"), "primaryContainer": container,
         "healthCheckPath": "/actuator/health" if kind == "backend" else "/",
         "cpu": "1024" if kind == "backend" else "256",
-        "memory": "2048" if kind == "backend" else "512", "cpuArchitecture": "X86_64",
+        "memory": "2048" if kind == "backend" else "512",
         "networkConfiguration": {
             "subnets": [item.strip() for item in required("ECS_SUBNET_IDS").split(",")],
             "securityGroups": [item.strip() for item in required(f"{kind.upper()}_SECURITY_GROUP_IDS").split(",")],
