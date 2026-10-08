@@ -33,7 +33,7 @@ class CaseDocumentServiceTest {
 
     @BeforeEach void prepare() {
         when(local.provider()).thenReturn("local");
-        when(cloud.provider()).thenReturn("gcs");
+        when(cloud.provider()).thenReturn("s3");
         var operator = new UserSystemEntity();
         var role = new com.seminario.legaladministrator.modules.users.RoleEntity();
         role.setName("Administrador");
@@ -234,7 +234,7 @@ class CaseDocumentServiceTest {
     }
 
     @Test void changingProviderDoesNotRedirectExistingDocuments() throws Exception {
-        properties.setProvider("gcs");
+        properties.setProvider("s3");
         UUID id = UUID.randomUUID();
         var entity = new CaseDocumentEntity();
         entity.setId(id);

@@ -147,7 +147,7 @@ Lectura externa directa, sin copia masiva ni webhooks: la app depende de conexi�
    GOOGLE_SYNC_DELAY_MS=30000
    ```
 
-   En producción utilizar el origen HTTPS real en ambas variables de origen. CORS conserva `allowCredentials=false`: la sesión usa Bearer JWT. No se requiere una variable VITE de Google; el ID público se entrega mediante `/google/status`. Las credenciales de GCS para documentos no reemplazan este cliente OAuth.
+   En producción utilizar el origen HTTPS real en ambas variables de origen. CORS conserva `allowCredentials=false`: la sesión usa Bearer JWT. No se requiere una variable VITE de Google; el ID público se entrega mediante `/google/status`. El rol IAM de S3 para documentos no reemplaza este cliente OAuth.
 10. En la aplicación abrir **Agenda → Conectar Google → Autorizar Google**. La preparación precede al segundo clic para mantener la apertura del popup asociada a una interacción del usuario. Cada usuaria selecciona su propia cuenta de Google con permiso de edición del calendario compartido y concede permisos. Una misma cuenta de Google no se conecta simultáneamente a dos usuarias internas. Verificar el estado conectado y el calendario destino.
 11. Registrar una actividad de prueba sin información sensible. Esperar el ciclo de sincronización, actualizar la agenda y comprobar el evento en Google. Esta validación real requiere credenciales y consentimiento del usuario; las pruebas automatizadas simulan Google.
 

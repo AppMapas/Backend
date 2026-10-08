@@ -49,6 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 1. Permitir peticiones OPTIONS
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
 
                         // 2. Permitir cualquier subruta de auth (login, refresh)
                         .requestMatchers("/api/v1/auth/**").permitAll()

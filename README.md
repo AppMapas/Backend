@@ -20,7 +20,8 @@
 
 ### Endpoints
 
-- **Documentos de expedientes:** [carga, consulta, descarga y configuración local/Google Cloud Storage](docs/documentos-expedientes.md).
+- **Documentos de expedientes:** [carga, consulta, descarga y configuración local/Amazon S3](docs/documentos-expedientes.md).
+- **Despliegue AWS:** [pipeline independiente del backend, variables e instrucciones del primer push](docs/despliegue-aws.md).
 
 | Módulo          | Ruta base              | Descripción                                                       | Documentación                              |
 |-----------------|------------------------|-------------------------------------------------------------------|--------------------------------------------|

@@ -39,10 +39,12 @@ WORKDIR /app
 
 # Usuario sin privilegios para mayor seguridad
 RUN addgroup -S spring && adduser -S spring -G spring \
-    && mkdir -p /app/data/documents && chown -R spring:spring /app/data
+    && mkdir -p /app/data/documents /app/certs \
+    && chmod 755 /app/certs && chown -R spring:spring /app/data
 USER spring:spring
 
 COPY --from=builder /app/target/*.jar app.jar
+ADD --chmod=0644 --chown=spring:spring https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/rds-global-bundle.pem
 
 EXPOSE 8080
 

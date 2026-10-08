@@ -38,7 +38,8 @@ La subida **no carga el archivo en memoria**:
 - `DocumentValidator` recorre el flujo en bloques de 8 KiB contando bytes reales y
   conservando solo los 8 primeros y los últimos 1024 para verificar la firma.
 - `DocumentStorage` recibe un `InputStream`: el almacenamiento local copia por
-  bloques y GCS sube con `createFrom` en trozos de 256 KiB.
+  bloques y S3 utiliza un archivo temporal para enviar una longitud conocida
+  sin mantener el PDF completo en memoria. Ese archivo se elimina al terminar.
 
 Coste asumido: validación y escritura leen el flujo dos veces, contra el disco
 temporal o la red, sin retenciones del archivo completo.
@@ -50,11 +51,11 @@ pocas consultas simultáneas es aceptable; si la concurrencia creciera, migrar e
 
 `DOCUMENT_MAX_REQUEST_SIZE` debe superar siempre a `DOCUMENT_MAX_FILE_SIZE`; si no,
 la aplicación no arranca. Al cambiar el límite, ajustar también el del proxy o de
-la plataforma (Cloud Run) delante del backend.
+la plataforma (ALB / ECS Fargate) delante del backend.
 
 ## Entorno local (predeterminado)
 
-No requiere cuenta ni credenciales de Google Cloud.
+No requiere credenciales AWS.
 
 ```dotenv
 DOCUMENT_STORAGE_PROVIDER=local
@@ -76,39 +77,34 @@ variables desde `Backend/.env`. Recrear el contenedor conserva los archivos.
 `docker compose down -v` elimina los volúmenes, incluyendo documentos y base de datos.
 Respaldar tanto PostgreSQL como el directorio/volumen de documentos.
 
-## Despliegue en Google Cloud
+## Despliegue en AWS
 
-Crear un bucket privado con acceso uniforme y prevención de acceso público:
-
-```sh
-gcloud storage buckets create gs://NOMBRE_BUCKET --location=REGION --uniform-bucket-level-access --public-access-prevention
-gcloud storage buckets add-iam-policy-binding gs://NOMBRE_BUCKET --member=serviceAccount:CUENTA_SERVICIO --role=roles/storage.objectUser
-```
-
-Asignar esa cuenta de servicio al backend (por ejemplo, Cloud Run) y configurar:
+Crear un bucket S3 privado con bloqueo de acceso público. Asignar al rol runtime
+de ECS permisos `s3:GetObject`, `s3:PutObject` y `s3:DeleteObject` sobre
+sus objetos y `s3:ListBucket` sobre el bucket para distinguir objetos ausentes.
+Configurar:
 
 ```dotenv
-DOCUMENT_STORAGE_PROVIDER=gcs
-DOCUMENT_GCS_BUCKET=NOMBRE_BUCKET
+DOCUMENT_STORAGE_PROVIDER=s3
+DOCUMENT_S3_BUCKET=NOMBRE_BUCKET
+AWS_REGION=us-east-1
 DOCUMENT_MAX_FILE_SIZE=20MB
 DOCUMENT_MAX_REQUEST_SIZE=21MB
 ```
 
-El cliente usa **Application Default Credentials** de la cuenta del despliegue;
-no se necesitan claves JSON en el repositorio. Para probar GCS desde una máquina
-de desarrollo, usar `gcloud auth application-default login` con una identidad
-que tenga acceso al bucket. El navegador no necesita credenciales de Google ni
-CORS del bucket: los bytes pasan por la API autenticada. Google Cloud Storage
-cifra los objetos en reposo; desplegar la API detrás de HTTPS.
+El SDK utiliza la cadena predeterminada de credenciales AWS y el rol runtime
+del servicio. No se incluyen claves AWS en la imagen. El navegador no necesita
+credenciales AWS ni CORS del bucket: los bytes pasan por la API autenticada.
+El bucket debe tener cifrado en reposo y la API se publica mediante HTTPS.
 
 El modo local no es almacenamiento persistente adecuado para el filesystem
-efímero de Cloud Run: configurar `gcs` allí. Un proveedor desconocido o `gcs`
+efímero de Fargate: configurar `s3` allí. Un proveedor desconocido o `s3`
 sin bucket impide arrancar con una configuración equivocada.
 
 Cada documento conserva el proveedor con el que se guardó. Cambiar el proveedor
 solo afecta nuevas cargas; **no migra documentos locales existentes**. Para conservar
 datos de desarrollo al desplegar, copiar sus objetos (manteniendo las claves UUID)
-al bucket y actualizar `storage_provider` a `gcs` después de verificar la copia,
+al bucket y actualizar `storage_provider` a `s3` después de verificar la copia,
 junto con la migración de la base de datos. No cambiar el bucket/directorio de datos
 existentes sin trasladar también sus objetos.
 
@@ -123,7 +119,7 @@ almacenamiento y persiste **solo metadatos** en `case_document`:
 | `legal_process_id` | Expediente al que se asocia (FK a `legal_process`) |
 | `original_name` | Nombre que envió el cliente, para mostrar y descargar |
 | `content_type`, `size_bytes` | Tipo y tamaño verificados |
-| `storage_provider` | `local` o `gcs`, según dónde se guardó |
+| `storage_provider` | `local` o `s3`, según dónde se guardó |
 | `object_key` | **Dirección del archivo** dentro del almacenamiento (UUID) |
 | `uploaded_by`, `uploaded_at` | Quién lo subió y cuándo |
 

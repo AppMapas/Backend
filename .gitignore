@@ -1,2 +1,6 @@
 .env
+.env.aws
+**/__pycache__/
 **/data/documents/
+
+/docs

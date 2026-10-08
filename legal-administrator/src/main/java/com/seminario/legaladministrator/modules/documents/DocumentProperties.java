@@ -13,17 +13,18 @@ import org.springframework.util.unit.DataSize;
 public class DocumentProperties {
     private String provider = "local";
     private String localDirectory = "./data/documents";
-    private String gcsBucket = "";
+    private String s3Bucket = "";
+    private String awsRegion = "";
     private DataSize maxFileSize = DataSize.ofMegabytes(20);
     private DataSize maxRequestSize = DataSize.ofMegabytes(21);
 
     @PostConstruct
     void validate() {
-        if (!provider.equals("local") && !provider.equals("gcs")) {
-            throw new IllegalStateException("DOCUMENT_STORAGE_PROVIDER debe ser local o gcs.");
+        if (!provider.equals("local") && !provider.equals("s3")) {
+            throw new IllegalStateException("DOCUMENT_STORAGE_PROVIDER debe ser local o s3.");
         }
-        if (provider.equals("gcs") && gcsBucket.isBlank()) {
-            throw new IllegalStateException("Configura DOCUMENT_GCS_BUCKET para Google Cloud Storage.");
+        if (provider.equals("s3") && (s3Bucket.isBlank() || awsRegion.isBlank())) {
+            throw new IllegalStateException("Configura DOCUMENT_S3_BUCKET y AWS_REGION para Amazon S3.");
         }
         if (maxFileSize.toBytes() <= 0 || maxFileSize.toBytes() > DataSize.ofMegabytes(50).toBytes()) {
             throw new IllegalStateException("El límite de documentos debe estar entre 1 byte y 50 MiB.");

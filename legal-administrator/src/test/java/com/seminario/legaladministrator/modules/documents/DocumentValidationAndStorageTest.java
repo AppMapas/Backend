@@ -134,9 +134,10 @@ class DocumentValidationAndStorageTest {
     @Test
     void localModeNeedsNoCloudCredentialsAndInvalidProvidersFailFast() {
         properties.validate();
-        properties.setProvider("gcs");
+        properties.setProvider("s3");
         assertThatThrownBy(properties::validate).isInstanceOf(IllegalStateException.class);
-        properties.setGcsBucket("private-documents");
+        properties.setS3Bucket("private-documents");
+        properties.setAwsRegion("us-east-1");
         properties.validate();
         properties.setProvider("typo");
         assertThatThrownBy(properties::validate).isInstanceOf(IllegalStateException.class);
