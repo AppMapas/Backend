@@ -27,7 +27,7 @@ jobs:
       BACKEND_TASK_ROLE_ARN: ${{ vars.BACKEND_TASK_ROLE_ARN }}
       ECS_SUBNET_IDS: ${{ vars.ECS_SUBNET_IDS }}
       BACKEND_SECURITY_GROUP_IDS: ${{ vars.BACKEND_SECURITY_GROUP_IDS }}
-      RDS_INSTANCE_ID: legal-db
+      RDS_INSTANCE_ID: db-legal-administrator
       DB_HOST: ${{ vars.DB_HOST }}
       DB_PORT: ${{ vars.DB_PORT || '5432' }}
       DB_NAME: ${{ vars.DB_NAME || 'postgres' }}
