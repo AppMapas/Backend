@@ -20,7 +20,7 @@ jobs:
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'LegalAdministrator' }}
-      BACKEND_SERVICE_NAME: ${{ vars.BACKEND_SERVICE_NAME || 'legal-backend' }}
+      BACKEND_SERVICE_NAME: ${{ vars.BACKEND_SERVICE_NAME || 'legal-administrator-backend' }}
       ECS_EXECUTION_ROLE_ARN: ${{ vars.ECS_EXECUTION_ROLE_ARN }}
       ECS_INFRASTRUCTURE_ROLE_ARN: ${{ vars.ECS_INFRASTRUCTURE_ROLE_ARN }}
       BACKEND_TASK_ROLE_ARN: ${{ vars.BACKEND_TASK_ROLE_ARN }}
