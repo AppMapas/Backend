@@ -96,11 +96,20 @@ jobs:
             origin="$(jq -r --arg name "$container" '.containerDefinitions[] | select(.name == $name) | (.environment // [])[] | select(.name == "FRONTEND_ALLOWED_ORIGINS") | .value' "$RUNNER_TEMP/current-task.json")"
           fi
           origin="${origin:-https://pending.invalid}"
-          # Preserve ports, sidecars, logs, task role and current CORS; remove output-only fields.
+          # Preserve ports, sidecars, task role and current CORS; replace inherited logging.
           # RDS/JWT are injected through ECS secrets, never duplicated as plaintext environment values.
-          jq --arg name "$container" '
+          jq --arg name "$container" --arg log_group "/ecs/$ECS_SERVICE" --arg region "$AWS_REGION" '
             del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
             | (.containerDefinitions[] | select(.name == $name) | .environment) |= ((. // []) | map(select(.name != "DB_PASSWORD" and .name != "JWT_SECRET")))
+            | (.containerDefinitions[] | select(.name == $name) | .logConfiguration) = {
+                logDriver: "awslogs",
+                options: {
+                  "awslogs-group": $log_group,
+                  "awslogs-region": $region,
+                  "awslogs-stream-prefix": "ecs",
+                  "awslogs-create-group": "true"
+                }
+              }
           ' "$RUNNER_TEMP/current-task.json" > "$RUNNER_TEMP/task-definition.json"
           echo "task-definition=$RUNNER_TEMP/task-definition.json" >> "$GITHUB_OUTPUT"
           echo "container-name=$container" >> "$GITHUB_OUTPUT"
