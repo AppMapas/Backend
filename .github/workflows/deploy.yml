@@ -32,7 +32,7 @@ jobs:
       DB_PORT: ${{ vars.DB_PORT || '5432' }}
       DB_NAME: ${{ vars.DB_NAME || 'postgres' }}
       DB_USER: ${{ vars.DB_USER || 'postgres' }}
-      DB_PASSWORD_SECRET_ARN: ${{ secrets.DB_PASSWORD_SECRET_ARN || vars.DB_PASSWORD_SECRET_ARN }}
+      DB_PASSWORD_SECRET_ARN: 'arn:aws:secretsmanager:us-east-2:354245662866:secret:db-legal-administrator-secret-okZNlY:password::'
       JWT_SECRET_ARN: ${{ secrets.JWT_SECRET_ARN || vars.JWT_SECRET_ARN }}
       FRONTEND_ALLOWED_ORIGINS: ${{ vars.FRONTEND_ALLOWED_ORIGINS }}
       DOCUMENT_S3_BUCKET: legal-administrator-documents
