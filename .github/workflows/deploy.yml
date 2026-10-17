@@ -34,5 +34,5 @@ jobs:
           target: prod
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/legal-backend:latest
-            ghcr.io/${{ github.repository_owner }}/legal-backend:${{ github.sha }}
+            ghcr.io/appmapas/legal-backend:latest
+            ghcr.io/appmapas/legal-backend:${{ github.sha }}
