@@ -1,173 +1,38 @@
-name: Deploy backend to Amazon ECS
+name: Build and Push Backend to GHCR
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
-concurrency:
-  group: legal-backend-production
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    if: github.ref == 'refs/heads/main'
+  build-and-push:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    env:
-      AWS_REGION: us-east-2
-      AWS_ACCOUNT_ID: '354245662866'
-      ECR_REPOSITORY: legal-administrator-backend
-      ECR_IMAGE: 354245662866.dkr.ecr.us-east-2.amazonaws.com/legal-administrator-backend:latest
-      ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'LegalAdministrator' }}
-      ECS_SERVICE: ${{ vars.BACKEND_SERVICE_NAME || 'legal-administrator-backend' }}
-      ECS_EXECUTION_ROLE_ARN: arn:aws:iam::354245662866:role/ecsTaskExecutionRole
-      BACKEND_TASK_ROLE_ARN: ${{ vars.BACKEND_TASK_ROLE_ARN }}
-      ECS_CONTAINER_NAME: ${{ vars.BACKEND_CONTAINER_NAME }}
-      RDS_INSTANCE_ID: db-legal-administrator
-      DB_HOST: ${{ vars.DB_HOST }}
-      DB_PORT: ${{ vars.DB_PORT || '5432' }}
-      DB_NAME: ${{ vars.DB_NAME || 'postgres' }}
-      DB_USER: ${{ vars.DB_USER || 'postgres' }}
-      DB_PASSWORD_SECRET_ARN: 'arn:aws:secretsmanager:us-east-2:354245662866:secret:db-legal-administrator-secret-okZNlY:password::'
-      JWT_SECRET_ARN: ${{ secrets.JWT_SECRET_ARN || vars.JWT_SECRET_ARN }}
-      FRONTEND_ALLOWED_ORIGINS: ${{ vars.FRONTEND_ALLOWED_ORIGINS }}
-      DOCUMENT_S3_BUCKET: legal-administrator-documents
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate configuration
-        run: |
-          set -euo pipefail
-          for key in DB_PASSWORD_SECRET_ARN JWT_SECRET_ARN; do
-            test -n "${!key}" || { echo "Missing configuration: $key"; exit 1; }
-          done
-          test -f legal-administrator/Dockerfile
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve RDS endpoint
-        run: |
-          set -euo pipefail
-          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
-          if [ -z "$DB_HOST" ]; then
-            host="$(aws rds describe-db-instances --db-instance-identifier "$RDS_INSTANCE_ID" --query 'DBInstances[0].Endpoint.Address' --output text)"
-            port="$(aws rds describe-db-instances --db-instance-identifier "$RDS_INSTANCE_ID" --query 'DBInstances[0].Endpoint.Port' --output text)"
-          else
-            host="$DB_HOST"
-            port="$DB_PORT"
-          fi
-          test -n "$host" && test "$host" != None
-          [[ "$port" =~ ^[0-9]+$ ]]
-          echo "DB_HOST=$host" >> "$GITHUB_ENV"
-          echo "DB_PORT=$port" >> "$GITHUB_ENV"
-
-      - name: Read current ECS task definition
-        id: current-task
-        run: |
-          set -euo pipefail
-          aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" --output json > "$RUNNER_TEMP/service.json"
-          if ! jq -e '.failures | length == 0' "$RUNNER_TEMP/service.json" >/dev/null; then
-            echo 'The ECS service must already exist in the configured cluster.'
-            exit 1
-          fi
-          task_arn="$(jq -er '.services[0].taskDefinition' "$RUNNER_TEMP/service.json")"
-          aws ecs describe-task-definition --task-definition "$task_arn" --query taskDefinition --output json > "$RUNNER_TEMP/current-task.json"
-          container="$ECS_CONTAINER_NAME"
-          if [ -z "$container" ]; then
-            container="$(jq -r '.services[0].loadBalancers[0].containerName // empty' "$RUNNER_TEMP/service.json")"
-          fi
-          if [ -z "$container" ]; then
-            container="$(jq -er 'if (.containerDefinitions | length) == 1 then .containerDefinitions[0].name else error("Set BACKEND_CONTAINER_NAME for services with multiple containers") end' "$RUNNER_TEMP/current-task.json")"
-          fi
-          jq -e --arg name "$container" 'any(.containerDefinitions[]; .name == $name)' "$RUNNER_TEMP/current-task.json" >/dev/null
-          origin="$FRONTEND_ALLOWED_ORIGINS"
-          if [ -z "$origin" ]; then
-            origin="$(jq -r --arg name "$container" '.containerDefinitions[] | select(.name == $name) | (.environment // [])[] | select(.name == "FRONTEND_ALLOWED_ORIGINS") | .value' "$RUNNER_TEMP/current-task.json")"
-          fi
-          origin="${origin:-https://pending.invalid}"
-          # Preserve ports, sidecars, task role and current CORS; replace inherited logging.
-          # RDS/JWT are injected through ECS secrets, never duplicated as plaintext environment values.
-          jq --arg name "$container" --arg log_group "/ecs/$ECS_SERVICE" --arg region "$AWS_REGION" '
-            del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
-            | (.containerDefinitions[] | select(.name == $name) | .environment) |= ((. // []) | map(select(.name != "DB_PASSWORD" and .name != "JWT_SECRET")))
-            | (.containerDefinitions[] | select(.name == $name) | .logConfiguration) = {
-                logDriver: "awslogs",
-                options: {
-                  "awslogs-group": $log_group,
-                  "awslogs-region": $region,
-                  "awslogs-stream-prefix": "ecs",
-                  "awslogs-create-group": "true"
-                }
-              }
-          ' "$RUNNER_TEMP/current-task.json" > "$RUNNER_TEMP/task-definition.json"
-          echo "task-definition=$RUNNER_TEMP/task-definition.json" >> "$GITHUB_OUTPUT"
-          echo "container-name=$container" >> "$GITHUB_OUTPUT"
-          echo "frontend-origin=$origin" >> "$GITHUB_OUTPUT"
-
-      - name: Login to Amazon ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push Java 17 image
-        env:
-          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          set -euo pipefail
-          test "$ECR_REGISTRY" = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-          immutable_image="$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
-          docker build --target prod -t "$ECR_IMAGE" -t "$immutable_image" legal-administrator
-          docker push "$immutable_image"
-          docker push "$ECR_IMAGE"
-
-      - name: Render ECS task definition
-        id: render-task
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
         with:
-          task-definition: ${{ steps.current-task.outputs.task-definition }}
-          container-name: ${{ steps.current-task.outputs.container-name }}
-          image: ${{ env.ECR_IMAGE }}
-          execution-role-arn: ${{ env.ECS_EXECUTION_ROLE_ARN }}
-          task-role-arn: ${{ env.BACKEND_TASK_ROLE_ARN }}
-          environment-variables: |
-            SPRING_PROFILES_ACTIVE=prod
-            PORT=8080
-            AWS_REGION=${{ env.AWS_REGION }}
-            DB_HOST=${{ env.DB_HOST }}
-            DB_PORT=${{ env.DB_PORT }}
-            DB_NAME=${{ env.DB_NAME }}
-            DB_USER=${{ env.DB_USER }}
-            DOCUMENT_STORAGE_PROVIDER=s3
-            DOCUMENT_S3_BUCKET=${{ env.DOCUMENT_S3_BUCKET }}
-            FRONTEND_ALLOWED_ORIGINS=${{ steps.current-task.outputs.frontend-origin }}
-          secrets: |
-            DB_PASSWORD=${{ env.DB_PASSWORD_SECRET_ARN }}
-            JWT_SECRET=${{ env.JWT_SECRET_ARN }}
-
-      - name: Deploy ECS task definition
-        id: deploy-task
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render-task.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
-          wait-for-minutes: 30
-          force-new-deployment: true
-
-      - name: Deployment summary
-        env:
-          TASK_DEFINITION_ARN: ${{ steps.deploy-task.outputs.task-definition-arn }}
-        run: |
-          printf '## Backend deployed\n\nImage: %s\n\nCluster: %s\n\nService: %s\n\nTask definition: %s\n' \
-            "$ECR_IMAGE" "$ECS_CLUSTER" "$ECS_SERVICE" "$TASK_DEFINITION_ARN" >> "$GITHUB_STEP_SUMMARY"
+          context: ./legal-administrator
+          file: ./legal-administrator/Dockerfile
+          target: prod
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/legal-backend:latest
+            ghcr.io/${{ github.repository_owner }}/legal-backend:${{ github.sha }}
