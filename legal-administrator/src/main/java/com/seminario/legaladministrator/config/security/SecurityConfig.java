@@ -1,12 +1,11 @@
 package com.seminario.legaladministrator.config.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import java.util.Arrays;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,6 +17,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -57,15 +57,15 @@ public class SecurityConfig {
                         // 3. Rutas específicas protegidas por roles
                         .requestMatchers("/api/v1/dashboard", "/api/v1/dashboard/**", "/api/v1/agenda", "/api/v1/agenda/**", "/api/v1/cash", "/api/v1/cash/**", "/api/v1/clients", "/api/v1/clients/**",
                                 "/api/v1/legal-processes", "/api/v1/legal-processes/**", "/api/v1/catalogs/**")
-                            .hasAnyAuthority("Administrador", "Abogada")
+                        .hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.POST, "/api/v1/users/register").hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.POST, "/api/v1/requirements", "/api/v1/process-types")
-                            .hasAnyAuthority("Administrador", "Abogada")
+                        .hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/requirements/**", "/api/v1/process-types/**")
-                            .hasAnyAuthority("Administrador", "Abogada")
+                        .hasAnyAuthority("Administrador", "Abogada")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/requirements/**", "/api/v1/process-types/**")
-                            .hasAnyAuthority("Administrador", "Abogada")
+                        .hasAnyAuthority("Administrador", "Abogada")
 
                         // 4. Todo lo demás requiere autenticación obligatoria
                         .anyRequest().authenticated()
